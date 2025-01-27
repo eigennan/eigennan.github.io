@@ -11,12 +11,12 @@ url: "https://eigenan.com"
 # google_tag_manager: XXX
 
 # Footer info
-affiliation: >
+#affiliation: >
   <!--Nan Li<br/>-->
   Ph.D. Student<br/>
   University of Minnesota Twin Cities
 
-location: >
+#location: >
   <!--University of Minnesota Twin Cities<br/>-->
   206 Church St. SE<br/>
   Minneapolis, MN 55455
