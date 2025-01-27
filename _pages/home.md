@@ -8,7 +8,7 @@ permalink: /
 ### Welcome!
 
 I am a Ph.D. candidate in mathematics at the University of Minnesota and my advisor is Arnd Scheel. I graduated from the University of California, Los Angeles with a B.S. in Mathematics.
-<!--
+
 <div class="container">
 <div class="row">
 <center>
@@ -19,5 +19,5 @@ Feynman R., The theory of positrons. <i>Phys. Rev.</i> (1949)
 </div>
 </div>
 <br/>
--->
+
 
