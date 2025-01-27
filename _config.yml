@@ -1,6 +1,6 @@
 # Site settings
 title: Nan Li
-email: li002843(at)umn.edu
+email: li002843@umn.edu
 description: # Academic webpage of Dr. Richard Feynman
 baseurl: ""
 url: "https://eigenan.com"
@@ -22,7 +22,7 @@ location: >
   Minneapolis, MN 55455
 
 contact: >
-  <a href="mailto:li002843(at)umn.edu" target="_blank"><i class="fa fa-envelope fa-1x"></i> Contact Nan via email</a> <br/>
+  <a href="mailto:li002843@umn.edu" target="_blank"><i class="fa fa-envelope fa-1x"></i> Contact Nan via email</a> <br/>
   <!--<a href="https://github.com/sbryngelson/academic-website-template"><i class="fa fa-github fa-1x"></i> Use this site as a template!</a>-->
 
 # Pages shown in navbar
