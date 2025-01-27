@@ -11,15 +11,15 @@ url: "https://eigenan.com"
 # google_tag_manager: XXX
 
 # Footer info
-#affiliation: >
-#  <!--Nan Li<br/>-->
-#  Ph.D. Student<br/>
-#  University of Minnesota Twin Cities
+affiliation: >
+  <!--Nan Li<br/>-->
+  Ph.D. Student<br/>
+  University of Minnesota Twin Cities
 
 #location: >
-#  <!--University of Minnesota Twin Cities<br/>-->
-#  206 Church St. SE<br/>
-#  Minneapolis, MN 55455
+  <!--University of Minnesota Twin Cities<br/>-->
+  206 Church St. SE<br/>
+  Minneapolis, MN 55455
 
 contact: >
   <a href="mailto:li002843@umn.edu" target="_blank"><i class="fa fa-envelope fa-1x"></i> Contact Nan via email</a> <br/>
