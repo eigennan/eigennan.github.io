@@ -65,7 +65,7 @@ scholar:
   last_name: Li
   first_name: [Nan]
 
-  style: citesty
+  style: siam
   locale: en
 
   source: /assets/
