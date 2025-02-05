@@ -65,7 +65,7 @@ scholar:
   last_name: Li
   first_name: [Nan]
 
-  style: SIAMbook2023
+  style: citesty
   locale: en
 
   source: /assets/
