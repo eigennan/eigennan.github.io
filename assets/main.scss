@@ -12,7 +12,6 @@ $baseurl: "{{ site.url }}{{ site.baseurl }}";
 @import "bootstrap";
 @import "SHB_css";
 
-@import "/assets/scss/fontawesome.scss";
 
 /* unvisited link */
 a:link {
