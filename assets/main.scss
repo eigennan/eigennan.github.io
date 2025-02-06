@@ -4,13 +4,6 @@
 
 $baseurl: "{{ site.url }}{{ site.baseurl }}";
 
-$fa-font-path: "/assets/webfonts";
-
-@import "scss/fontawesome.scss"
-@import "scss/solid.scss"
-@import "scss/brands.scss"
-@import "scss/regular.scss"
-
 // @import "variables";
 @import "bootstrap/bootstrap";
 // @import "syntax-highlighting";
