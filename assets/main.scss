@@ -14,20 +14,20 @@ $baseurl: "{{ site.url }}{{ site.baseurl }}";
 
 /* unvisited link */
 a:link {
-  color: hotpink;
+  color: #209CEE;
 }
 
 /* visited link */
 a:visited {
-  color: hotpink;
+  color: #209CEE;
 }
 
 /* mouse over link */
 a:hover {
-  color: hotpink;
+  color: #209CEE;
 }
 
 /* selected link */
 a:active {
-  color: hotpink;
+  color: #209CEE;
 }
