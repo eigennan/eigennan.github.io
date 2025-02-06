@@ -12,6 +12,11 @@ $baseurl: "{{ site.url }}{{ site.baseurl }}";
 @import "bootstrap";
 @import "SHB_css";
 
+@import "/assets/scss/fontawesome.scss"
+@import "/assets/scss/solid.scss"
+@import "/assets/scss/brands.scss"
+@import "/assets/scss/regular.scss"
+
 /* unvisited link */
 a:link {
   color: #209CEE;
