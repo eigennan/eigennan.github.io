@@ -36,7 +36,7 @@ permalink: /about/
 {% endfor %}
 
 {% if site.data.grants %}
-<!-->
+<!--
 <div class="jumbotron">
   <h3>Grants</h3>
   <ul>
@@ -61,7 +61,7 @@ permalink: /about/
 {% endif %}
 
 {% if site.data.people %}
-<!-->
+<!--
 <div class="jumbotron">
   <h3>Students and Mentoring</h3>
   <ul>
