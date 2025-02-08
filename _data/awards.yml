@@ -1,3 +1,8 @@
-- name: Example award here (2021)
-- name: Example award here (2020)
+- name: SIAM Travel Award (2025)
+  date: 2025-05-11
+  location: Denver, CO
+  description: Travel award to attend the SIAM DS25.
+  link: https://www.siam.org/conferences-events/siam-conferences/ds25/
+  image: /assets/images/siam_logo_teal_cobranded_horizontal.png
+  alt: SIAM Travel Award
 
