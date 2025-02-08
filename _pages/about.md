@@ -65,7 +65,7 @@ permalink: /about/
 <div class="jumbotron">
   <h3>Activities</h3>
   <ul>
-    {% for award in site.data.activities %}
+    {% for activities in site.data.activities %}
       <li>{{ activities.name | replace: "-","&#8211;" }}</li>
     {% endfor %}
   </ul>
