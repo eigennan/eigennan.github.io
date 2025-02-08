@@ -30,7 +30,7 @@ nav_pages:
   - name: about
   - name: publications
   - name: talks
-  - name: research
+#  - name: research
 #  - name: software
 #  - name: team
   - name: teaching
