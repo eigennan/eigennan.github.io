@@ -25,6 +25,7 @@ permalink: /talks/
 ### Posters
 {% bibliography --query @poster[keywords ^= invited] %}
 </div>
+<!--
 <div class="jumbotron">
 ### Invited talks
 {% bibliography --query @incollection[keywords ^= invited] %}
@@ -33,3 +34,4 @@ permalink: /talks/
 ### Regular talks
 {% bibliography --query @incollection[keywords != invited] %}
 </div>
+-->
