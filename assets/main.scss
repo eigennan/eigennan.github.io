@@ -4,18 +4,6 @@
 
 $baseurl: "{{ site.url }}{{ site.baseurl }}";
 
-$white: #ffffff;
-$theme-colors: (
-    "light":      #e4f3cc,
-    "dark":       #201328,
-    "primary":    #6399c0,
-    "secondary":  #be9ec2,
-    "info":       #516c8f,
-    "success":    #3eb46d,
-    "warning":    #eacf39,
-    "danger":     #f82025,
-);
-
 // @import "variables";
 @import "bootstrap/bootstrap";
 // @import "syntax-highlighting";
@@ -52,3 +40,15 @@ a:active {
  .nav-item {
     text-align: right;
 }
+
+$white: #ffffff;
+$theme-colors: (
+    "light":      #e4f3cc,
+    "dark":       #201328,
+    "primary":    #6399c0,
+    "secondary":  #be9ec2,
+    "info":       #516c8f,
+    "success":    #3eb46d,
+    "warning":    #eacf39,
+    "danger":     #f82025,
+);
