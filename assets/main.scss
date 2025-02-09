@@ -74,3 +74,10 @@ body {
   text-align: left;
   background-color: #fff;
 }
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: #222;
+  background-color: #fff;
+  border-color: #444 #444 transparent;
+}
