@@ -41,8 +41,11 @@ a:active {
   position: absolute;
   left: 0px;
   height: 40px;
-  background-color: #2C64B4;
   width: 100%;
-  display: flex;
-  justify-content: center;
+  text-align: center;
+}
+#nav ul {
+  margin: 0;
+  padding: 0;
+  display: inline-block;
 }
