@@ -12,6 +12,13 @@ $baseurl: "{{ site.url }}{{ site.baseurl }}";
 @import "bootstrap";
 @import "SHB_css";
 
+#footer {
+  margin-top: 20px;
+}
+
+ .nav-item {
+    text-align: right;
+}
 
 /* unvisited link */
 a:link {
@@ -33,14 +40,9 @@ a:active {
   color: #a2cfee;
 }
 
-#footer {
-  margin-top: 20px;
+.MathJax_ref {
+  fill: #00bc8c!important;
 }
-
- .nav-item {
-    text-align: right;
-}
-
 
 html {
   font-family: sans-serif;
@@ -61,19 +63,19 @@ body {
   line-height: 1.5;
   color: #000000;
   text-align: left;
-  background-color: #ffffff;
+  background-color: #FBF5DD;
 }
 
 .jumbotron {
   padding: 2rem 1rem;
   margin-bottom: 2rem;
-  background-color: #e9d795;
+  background-color: #A6CDC6;
   border-radius: 0.3rem;
 }
 
 .navbar {
   margin-bottom: 20px;
-  border-bottom: 4px solid #c6b67d;
+  border-bottom: 4px solid #16404D;
 }
 
 .navbar-text {
@@ -81,11 +83,11 @@ body {
 }
 
 .nav-tabs {
-  border-bottom: 1px solid #ffffff;
+  border-bottom: 1px solid #DDA853;
 }
 
 .bg-dark {
-  background-color: #e9d795 !important;
+  background-color: #A6CDC6 !important;
 }
 
 .navbar-dark .navbar-brand {
