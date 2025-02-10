@@ -73,8 +73,7 @@ body {
 
 .navbar {
   margin-bottom: 20px;
-  border-bottom: 4px solid #e9d795;
-  color: #e9d795;
+  border-bottom: 4px solid #c6b67d;
 }
 
 .navbar-text {
@@ -83,4 +82,8 @@ body {
 
 .nav-tabs {
   border-bottom: 1px solid #ffffff;
+}
+
+.bg-dark {
+  background-color: #e9d795 !important;
 }
