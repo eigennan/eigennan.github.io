@@ -26,12 +26,12 @@ $baseurl: "{{ site.url }}{{ site.baseurl }}";
 
 /* unvisited link */
 a:link {
-  color: #856a00;
+  color: #fca311;
 }
 
 /* visited link */
 a:visited {
-  color: #856a00;
+  color: #fca311;
 }
 
 /* mouse over link */
@@ -45,7 +45,7 @@ a:active {
 }
 
 .MathJax_ref {
-  fill: #856a00!important;
+  fill: #fca311!important;
 }
 
 html {
