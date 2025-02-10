@@ -71,7 +71,7 @@ body {
   border-radius: 0.3rem;
 }
 
-.navbar-dark {
+.navbar {
   margin-bottom: 20px;
   border-bottom: 4px solid #e9d795;
   color: #e9d795;
@@ -79,4 +79,8 @@ body {
 
 .navbar-text {
   color: rgba(34, 34, 34, 0.7);
+}
+
+.nav-tabs {
+  border-bottom: 1px solid #ffffff;
 }
