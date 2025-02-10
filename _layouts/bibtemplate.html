@@ -58,6 +58,8 @@ pre{
 <button class="btn btn-warning btm-sm"  onclick="toggleAbstract{{entry.key}}()">ABSTRACT</button>
 {% endif %}
 
+<!--change background-color to "black" for dark theme-->
+
 {% if entry.abstract %}
 <div id="a{{entry.key}}" style="display: none; background-color:#F9F7F7; border-radius:5px; padding:10px; margin-bottom:20px;">
 <pre>{{ entry.bibtex | remove: "entry.abstract" }}</pre>
