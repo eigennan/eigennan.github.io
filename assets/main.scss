@@ -4,9 +4,6 @@
 
 $baseurl: "{{ site.url }}{{ site.baseurl }}";
 
-$--bs-table-bg: #ffffff;
-$--bs-table-color: #000000;
-
 // @import "variables";
 @import "bootstrap/bootstrap";
 // @import "syntax-highlighting";
@@ -143,12 +140,4 @@ body {
 
 .navbar-dark .navbar-text a:hover, .navbar-dark .navbar-text a:focus {
   color: #ffffff;
-}
-
-// Table
-
-
-.table-dark {
-  color: #000000;
-  background-color: #ffffff;
 }
