@@ -142,13 +142,13 @@ body {
   color: #ffffff;
 }
 
-// Tables
+// Table
 
 
 .table {
   width: 100%;
   margin-bottom: 1rem;
-  color: #fff;
+  color: #000000;
 }
 
 .table th,
@@ -394,8 +394,8 @@ body {
 }
 
 .table .thead-dark th {
-  color: #000000;
-  background-color: #ffffff;
+  color: #fff;
+  background-color: #303030;
   border-color: #434343;
 }
 
