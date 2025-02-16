@@ -10,9 +10,9 @@
   # Change the items in "education" you have (up to 6)
   education:
     [
-      "Ph.D. in Mathematics, University of Minnesota - In progress",
-      "M.S. in Mathematics, University of Minnesota - 2024",
-      "B.S. in Mathematics, University of California Los Angeles - 2022"
+      "(In progress) Ph.D. in Mathematics, University of Minnesota",
+      "(2024) M.S. in Mathematics, University of Minnesota",
+      "(2022) B.S. in Mathematics, University of California Los Angeles"
     ]
 
   educationshort:
