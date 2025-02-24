@@ -7,3 +7,6 @@
 		font-size: 0.875rem;
 	}
 }
+
+.social-icons a:hover{
+    transform: scale(1.2)}
