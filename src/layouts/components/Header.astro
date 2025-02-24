@@ -117,7 +117,7 @@ const menu = [
 
 	<script is:inline>
 		const theme = (() => {
-			if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+			if (window.matchMedia('(prefers-color-scheme: light)').matches) {
 				return 'dark';
 			}
 			if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
