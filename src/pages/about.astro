@@ -13,7 +13,7 @@ import Prose from '../components/Prose.astro';
   <div class='container'>
 		<main class='prose text-lg dark:prose-invert'>
       <article>
-        <div class='w-full md:flex md:items-center gap-16 mb-10'>
+        <div class='w-full md:flex md:items-start gap-16 mb-10'>
           <div class="text-pretty leading-9">
             <h1 class="text-3xl font-bold mb-2">About Me</h1>
             <Prose>
@@ -23,7 +23,7 @@ import Prose from '../components/Prose.astro';
               </div>
             </Prose>
           </div>
-          <Image src={Ava} alt="Nan Li" width={180}  class="rounded-3xl rotate-0 mx-4 md:mx-0"/>
+          <Image src={Ava} alt="Nan Li" width={300} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0"/>
         </div>     
         <div>
           <p>
