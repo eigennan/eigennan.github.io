@@ -11,20 +11,21 @@ import Prose from '../components/Prose.astro';
 	description="Lorem ipsum dolor sit amet"
 >
   <div class='container'>
+    <div class='w-full md:flex md:items-start gap-16 mb-10'>
+      <div class="text-pretty leading-9">
+        <h1 class="text-3xl font-bold mb-2">About Me</h1>
+        <Prose>
+          <div class="text-lg">
+            <p>I am a Ph.D. candidate in mathematics at the University of Minnesota, mentored by <a href="https://www-users.cse.umn.edu/~scheel/" target="_blank">Arnd Scheel</a>. I graduated from the University of California, Los Angeles with a B.S. in Mathematics.</p>
+            <p>My research interests lie in the intersection of partial differential equations and dynamical systems. My current research focuses on the study of pattern formation in reaction-diffusion systems with applications to biology.</p>
+          </div>
+        </Prose>
+      </div>
+      <Image src={Ava} alt="Nan Li" width={300} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0"/>
+    </div>     
 		<main class='prose text-lg dark:prose-invert'>
       <article>
-        <div class='w-full md:flex md:items-start gap-16 mb-10'>
-          <div class="text-pretty leading-9">
-            <h1 class="text-3xl font-bold mb-2">About Me</h1>
-            <Prose>
-              <div class="text-lg">
-                <p>I am a Ph.D. candidate in mathematics at the University of Minnesota, mentored by <a href="https://www-users.cse.umn.edu/~scheel/" target="_blank">Arnd Scheel</a>. I graduated from the University of California, Los Angeles with a B.S. in Mathematics.</p>
-                <p>My research interests lie in the intersection of partial differential equations and dynamical systems. My current research focuses on the study of pattern formation in reaction-diffusion systems with applications to biology.</p>
-              </div>
-            </Prose>
-          </div>
-          <Image src={Ava} alt="Nan Li" width={300} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0"/>
-        </div>     
+        
         <div>
           <p>
             $$
