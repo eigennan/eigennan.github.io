@@ -54,12 +54,4 @@ export const publications: Publications[] = [
       ],
     image: '/ccis.png',
   },
-  {
-    ...(await getRepositoryDetails('devaradise/paradise-ui')),
-    name: 'Paradise UI',
-    paperLink: 'https://paradise-ui.com',
-    postLink: 'https://devaradise.com/how-i-build-paradise-ui-react-component-library/',
-    authors: ['React', 'UI Library'],
-    image: '/blog-placeholder-3.jpg'
-  },
 ]
