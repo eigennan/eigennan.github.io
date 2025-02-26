@@ -36,7 +36,6 @@ export const publications: Publications[] = [
     journal: 'London Math. Soc. Lecture Note Ser.',
     image: '/spiral.png',
     pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
-    code: 'https://github.com',
     bibtex: `@misc{li2024anchoredspiralsdrivencurvature,
     title={Anchored spirals in the driven curvature flow approximation}, 
     author={Nan Li and Arnd Scheel},
