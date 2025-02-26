@@ -9,8 +9,8 @@ const { publications } = Astro.props
 <div class="grid grid-cols-1 gap-5">
   {
     publications.map((publication: Publications, index: number) => 
-      <div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5">
-        <div class="cover-box">
+      <div class="flex flex-col md:flex-row justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5">
+        <div class="cover-box mx-auto md:mx-0 mb-4 md:mb-0">
             <img src={publication.image} alt="Publication" class="rounded"/>
         </div>
         <div class="flex-1 gap-2 flex flex-col">
