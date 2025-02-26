@@ -40,7 +40,7 @@ const { publications } = Astro.props
 
         {/* Read more toggle */}
         <div class="text-zinc-600 dark:text-zinc-300 mb-2 abstract-container text-sm flex-grow">
-            <p class="abstract-text line-clamp-2" id={`abstract-${index}`}>{publication.abstract}</p>
+            <p class="abstract-text line-clamp-2 min-h-[65px] max-h-[65px]" id={`abstract-${index}`}>{publication.abstract}</p>
             <p class="abstract-text-full hidden" id={`abstract-full-${index}`}>{publication.abstract}</p>
             <button 
               id={`read-more-${index}`} 

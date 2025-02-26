@@ -16,6 +16,6 @@
 .cover-box img{
 	object-fit: cover;
     width: 250px;
-    height: 175px;
+    height: 200px;
     max-width: 250px;
 }
