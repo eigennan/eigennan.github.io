@@ -2,65 +2,136 @@
 import { Image } from 'astro:assets';
 import type { Publications } from '../pages/publications/publications'
 import { kFormatter } from '../utils'
-import GithubWhite from '@src/assets/img/github-mark-white.svg';
-import GithubBlack from '@src/assets/img/github-mark.svg';
 
 const { publications } = Astro.props
 
 ---
 <div class="grid grid-cols-1 gap-5">
   {
-    publications.map((publication: Publications) => 
+    publications.map((publication: Publications, index: number) => 
       <div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5">
-        <div>
-            <img src={publication.image} alt="Publication" width="250" class="rounded"/>
+        <div class="cover-box">
+            <img src={publication.image} alt="Publication" class="rounded"/>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 gap-2 flex flex-col">
           <div class='flex gap-2'>
             {
               (publication.authors || [] )?.map((author: { name: string; url?: string }) => (
-                              <span
-                                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                                  transition-all duration-700
-                                hover:border-zinc-700 dark:hover:border-zinc-300'
-                                >
-                                <a href={author.url} target="_blank" rel={publication.paperLinkRel}>
-                                    {author.name}
-                                </a>
-                              </span>
-                            ))
+                    <a class="hover:underline" href={author.url} target="_blank" rel={publication.paperLinkRel}>
+                    {/* <span
+                        class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                        text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                        transition-all duration-50
+                        hover:border-zinc-700 dark:hover:border-zinc-300'
+                        >
+                            {author.name}
+                    </span> */}
+                        {author.name}
+                    </a>
+                    ))
             }
           </div>
-        <h3 class="font-semibold my-2">
-          <a class="underline" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>{publication.name}</a>
+        <h3 class="font-semibold my-1">
+          <a class="hover:underline" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>{publication.name}</a>
         </h3>
-        <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]">
+        {/* <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-2 min-h-[40px]">
           <p>{publication.abstract}</p>
-        </div>
-        <div class="flex justify-end gap-3">
-          {
-            publication.pdf &&
-            <a class="underline flex items-center gap-2" href={publication.pdf} target="_blank" rel={publication.paperLinkRel}>
-              PDF
-            </a>
-          }
-          {
-            publication.postLink &&
-            <a class="underline flex items-center gap-2" href={publication.postLink}>
-              Article
-            </a>
-          }
-          {
-            publication.paperLink &&  // This line adds the conditional check for the Demo link
-            <a class="underline flex items-center gap-2" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
-              Paper
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-            </a>
-          }
+        </div> */}
+
+        <div class="text-zinc-600 dark:text-zinc-300 mb-2 abstract-container text-sm">
+            <p class="abstract-text line-clamp-2" id={`abstract-${index}`}>{publication.abstract}</p>
+            <p class="abstract-text-full hidden" id={`abstract-full-${index}`}>{publication.abstract}</p>
+            <button 
+              id={`read-more-${index}`} 
+              class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 read-more-btn"
+              onclick={`toggleAbstract(${index})`}
+            >
+              Read more
+            </button>
+        </div>       
+
+        <div class="mt-auto flex justify-end gap-3">
+            {
+                publication.pdf &&
+                <a class="flex items-center gap-2" href={publication.pdf} target="_blank" rel={publication.paperLinkRel}>
+                    <span
+                    class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                    transition-all duration-0
+                    hover:border-zinc-700 dark:hover:border-zinc-300'
+                    >
+                        PDF
+                    </span>
+                </a>
+            }
+        
+            {
+                publication.postLink &&
+                <a class="flex items-center gap-2" href={publication.postLink}>
+                <span
+                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                transition-all duration-0
+                hover:border-zinc-700 dark:hover:border-zinc-300'
+                >
+                    Article
+                </span>
+                </a>
+            }
+        
+            {
+                publication.paperLink &&  // This line adds the conditional check for the Demo link
+                <a class="flex items-center gap-2" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
+                <span
+                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                transition-all duration-0
+                hover:border-zinc-700 dark:hover:border-zinc-300'
+                >
+                    Paper
+                </span>
+                </a>
+            }
         </div>
         </div>
       </div>
     )
   }
 </div>
+
+<!-- Read More and Show Less Button Functionality -->
+<script>
+    function toggleAbstract(index: number) {
+      const abstractEl = document.getElementById(`abstract-${index}`);
+      const abstractFullEl = document.getElementById(`abstract-full-${index}`);
+      const buttonEl = document.getElementById(`read-more-${index}`);
+      
+      if (!abstractEl || !abstractFullEl || !buttonEl) return;
+      
+      if (abstractEl.classList.contains('line-clamp-2')) {
+        // Expand
+        abstractEl.classList.remove('line-clamp-2');
+        abstractEl.classList.add('hidden');
+        abstractFullEl.classList.remove('hidden');
+        buttonEl.textContent = 'Show less';
+      } else {
+        // Collapse
+        abstractEl.classList.add('line-clamp-2');
+        abstractEl.classList.remove('hidden');
+        abstractFullEl.classList.add('hidden');
+        buttonEl.textContent = 'Read more';
+      }
+    }
+  
+    // Initialize all buttons
+    document.addEventListener('DOMContentLoaded', () => {
+      const buttons = document.querySelectorAll('.read-more-btn');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          const index = parseInt(target.id.split('-')[2], 10);
+          toggleAbstract(index);
+        });
+      });
+    });
+  </script>
