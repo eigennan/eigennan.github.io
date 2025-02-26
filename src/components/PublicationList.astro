@@ -14,9 +14,10 @@ const { publications } = Astro.props
             <img src={publication.image} alt="Publication" class="rounded"/>
         </div>
         <div class="flex-1 gap-2 flex flex-col">
-          <div class='flex gap-2'>
+          <div class='flex flex-wrap'>
             {
-              (publication.authors || [] )?.map((author: { name: string; url?: string }) => (
+              (publication.authors || [] )?.map((author: { name: string; url?: string }, authorIndex: number, authors) => (
+                  <>
                     <a class="hover:underline" href={author.url} target="_blank" rel={publication.paperLinkRel}>
                     {/* <span
                         class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
@@ -28,6 +29,8 @@ const { publications } = Astro.props
                     </span> */}
                         {author.name}
                     </a>
+                    {authorIndex < authors.length - 1 && <span class="mr-1">,</span>}
+                  </>
                     ))
             }
           </div>
