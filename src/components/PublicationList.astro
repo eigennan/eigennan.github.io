@@ -38,9 +38,11 @@ const { publications } = Astro.props
           <p>{publication.abstract}</p>
         </div> */}
 
+        {/* Read more toggle */}
         <div class="text-zinc-600 dark:text-zinc-300 mb-2 abstract-container text-sm">
             <p class="abstract-text line-clamp-2" id={`abstract-${index}`}>{publication.abstract}</p>
             <p class="abstract-text-full hidden" id={`abstract-full-${index}`}>{publication.abstract}</p>
+            <div class="flex justify-between items-center mt-1">
             <button 
               id={`read-more-${index}`} 
               class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 read-more-btn"
@@ -48,7 +50,30 @@ const { publications } = Astro.props
             >
               Read more
             </button>
+
+            <button 
+            id={`cite-btn-${index}`} 
+            class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 cite-btn"
+            onclick={`toggleCitation(${index})`}
+            >
+            Cite
+            </button>
+            </div>
         </div>       
+
+        <!-- Add BibTeX Citation Toggle -->
+        <div class="text-zinc-600 dark:text-zinc-300 mb-2 citation-container text-sm">
+            <pre 
+            id={`citation-${index}`} 
+            class="hidden mt-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs overflow-x-auto"
+            >{publication.bibtex || `@article{${publication.name.split(' ')[0].toLowerCase()}${new Date().getFullYear()},
+        title={${publication.name}},
+        author={${(publication.authors || []).map(a => a.name).join(' and ')}},
+        journal={Journal},
+        year={${new Date().getFullYear()}}
+        }`}</pre>
+        </div>
+
 
         <div class="mt-auto flex justify-end gap-3">
             {
@@ -78,6 +103,20 @@ const { publications } = Astro.props
                 </span>
                 </a>
             }
+
+            {
+                publication.code &&  // This line adds the conditional check for the Demo link
+                <a class="flex items-center gap-2" href={publication.code} target="_blank" rel={publication.paperLinkRel}>
+                <span
+                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                transition-all duration-0
+                hover:border-zinc-700 dark:hover:border-zinc-300'
+                >
+                    Code
+                </span>
+                </a>
+            }
         
             {
                 publication.paperLink &&  // This line adds the conditional check for the Demo link
@@ -88,7 +127,7 @@ const { publications } = Astro.props
                 transition-all duration-0
                 hover:border-zinc-700 dark:hover:border-zinc-300'
                 >
-                    Paper
+                    DOI
                 </span>
                 </a>
             }
@@ -122,6 +161,24 @@ const { publications } = Astro.props
         buttonEl.textContent = 'Read more';
       }
     }
+
+    // Add Citation Toggle Function
+    function toggleCitation(index: number) {
+      const citationEl = document.getElementById(`citation-${index}`);
+      const buttonEl = document.getElementById(`cite-btn-${index}`);
+      
+      if (!citationEl || !buttonEl) return;
+      
+      if (citationEl.classList.contains('hidden')) {
+        // Show citation
+        citationEl.classList.remove('hidden');
+        buttonEl.textContent = 'Hide citation';
+      } else {
+        // Hide citation
+        citationEl.classList.add('hidden');
+        buttonEl.textContent = 'Cite';
+      }
+    }
   
     // Initialize all buttons
     document.addEventListener('DOMContentLoaded', () => {
@@ -131,6 +188,16 @@ const { publications } = Astro.props
           const target = e.target as HTMLElement;
           const index = parseInt(target.id.split('-')[2], 10);
           toggleAbstract(index);
+        });
+      });
+
+    // New citation button initialization
+    const citeButtons = document.querySelectorAll('.cite-btn');
+      citeButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          const index = parseInt(target.id.split('-')[2], 10);
+          toggleCitation(index);
         });
       });
     });

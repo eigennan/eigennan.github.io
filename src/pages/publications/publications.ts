@@ -12,6 +12,8 @@ export interface Publications {
   paperLinkRel?: string;
   image: string;
   pdf: string;
+  code?: string;
+  bibtex?: string;
   [key: string]: any;
 }
 
@@ -19,7 +21,7 @@ export const publications: Publications[] = [
   {
     name: 'Anchored spirals in the driven curvature flow approximation',
     abstract: 'We study existence, asymptotics, and stability of spiral waves in a driven curvature approximation, supplemented with an anchoring condition on a circle of finite radius. We analyze the motion of curves written as graphs in polar coordinates, finding spiral waves as rigidly rotating shapes. The existence analysis reduces to a planar ODE and asymptotics are given through center manifold expansions. In the limit of a large core, we find rotation frequencies and corrections starting form a problem without curvature corrections. Finally, we demonstrate orbital stability of spiral waves by exploiting a comparison principle inherent to curvature driven flow.',
-    paperLink: 'https://arxiv.org',
+    paperLink: 'https://doi.org/10.48550/arXiv.2312.07809',
     authors: [
         {
           name: 'Nan Li',
@@ -31,7 +33,16 @@ export const publications: Publications[] = [
         }
       ],
     image: '/spiral.png',
-    pdf: '/Anchored spirals in the driven curvature flow approximation.pdf'
+    pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
+    bibtex: `@misc{li2024anchoredspiralsdrivencurvature,
+    title={Anchored spirals in the driven curvature flow approximation}, 
+    author={Nan Li and Arnd Scheel},
+    year={2024},
+    eprint={2312.07809},
+    archivePrefix={arXiv},
+    primaryClass={nlin.PS},
+    url={https://arxiv.org/abs/2312.07809}, 
+    }`,
   },
   {
     name: 'Counting compatible indexing systems for $C_{p^n}$',
