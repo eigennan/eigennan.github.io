@@ -14,6 +14,7 @@ export interface Publications {
   pdf: string;
   code?: string;
   bibtex?: string;
+  journal?: string;
   [key: string]: any;
 }
 
@@ -32,8 +33,10 @@ export const publications: Publications[] = [
           url: 'https://www.math.umn.edu/~scheel/'
         }
       ],
+    journal: 'London Math. Soc. Lecture Note Ser.',
     image: '/spiral.png',
     pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
+    code: 'https://github.com',
     bibtex: `@misc{li2024anchoredspiralsdrivencurvature,
     title={Anchored spirals in the driven curvature flow approximation}, 
     author={Nan Li and Arnd Scheel},

@@ -49,16 +49,20 @@ const { publications } = Astro.props
             >
               Read more
             </button>
-            <div class="flex justify-end gap-4 items-baseline mt-1">
-            <button 
-            id={`cite-btn-${index}`} 
-            class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 cite-btn"
-            onclick={`toggleCitation(${index})`}
-            >
-            Cite
-            </button>
-
-            <div class="mt-auto flex justify-end gap-3">
+            
+            <div class="flex justify-between gap-4 items-baseline mt-1">
+                <h3 class="italic my-1">
+                    {publication.journal}
+                </h3>
+                
+            <div class="mt-auto flex justify-end gap-3 items-baseline">
+                <button 
+                id={`cite-btn-${index}`} 
+                class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 cite-btn"
+                onclick={`toggleCitation(${index})`}
+                >
+                Cite
+                </button>
             {
                 publication.pdf &&
                 <a class="flex items-center gap-2" href={publication.pdf} target="_blank" rel={publication.paperLinkRel}>
