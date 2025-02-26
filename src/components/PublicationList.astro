@@ -59,12 +59,26 @@ const { publications } = Astro.props
                 </h3>
                 
             <div class="mt-auto flex justify-end gap-3 items-baseline">
-                <button 
+                {/* <button 
                 id={`cite-btn-${index}`} 
                 class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 cite-btn"
                 onclick={`toggleCitation(${index})`}
                 >
                 Cite
+                </button> */}
+                <button 
+                id={`cite-btn-${index}`} 
+                class="flex items-center gap-2 cite-btn"
+                onclick={`toggleCitation(${index})`}
+                >
+                    <span
+                    class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                    transition-all duration-0
+                    hover:border-zinc-700 dark:hover:border-zinc-300'
+                    >
+                        Cite
+                    </span>
                 </button>
             {
                 publication.pdf &&
@@ -225,6 +239,22 @@ const { publications } = Astro.props
     }
 
     // Add Citation Toggle Function
+    // function toggleCitation(index: number) {
+    //   const citationEl = document.getElementById(`citation-${index}`);
+    //   const buttonEl = document.getElementById(`cite-btn-${index}`);
+      
+    //   if (!citationEl || !buttonEl) return;
+      
+    //   if (citationEl.classList.contains('hidden')) {
+    //     // Show citation
+    //     citationEl.classList.remove('hidden');
+    //     buttonEl.textContent = 'Hide citation';
+    //   } else {
+    //     // Hide citation
+    //     citationEl.classList.add('hidden');
+    //     buttonEl.textContent = 'Cite';
+    //   }
+    // }
     function toggleCitation(index: number) {
       const citationEl = document.getElementById(`citation-${index}`);
       const buttonEl = document.getElementById(`cite-btn-${index}`);
@@ -234,11 +264,13 @@ const { publications } = Astro.props
       if (citationEl.classList.contains('hidden')) {
         // Show citation
         citationEl.classList.remove('hidden');
-        buttonEl.textContent = 'Hide citation';
+        const spanEl = buttonEl.querySelector('span');
+        if (spanEl) spanEl.textContent = 'Hide';
       } else {
         // Hide citation
         citationEl.classList.add('hidden');
-        buttonEl.textContent = 'Cite';
+        const spanEl = buttonEl.querySelector('span');
+        if (spanEl) spanEl.textContent = 'Cite';
       }
     }
   
@@ -254,12 +286,28 @@ const { publications } = Astro.props
       });
 
     // New citation button initialization
+    // const citeButtons = document.querySelectorAll('.cite-btn');
+    //   citeButtons.forEach(btn => {
+    //     btn.addEventListener('click', (e) => {
+    //       const target = e.target as HTMLElement;
+    //       const index = parseInt(target.id.split('-')[2], 10);
+    //       toggleCitation(index);
+    //     });
+    //   });
     const citeButtons = document.querySelectorAll('.cite-btn');
       citeButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const target = e.target as HTMLElement;
-          const index = parseInt(target.id.split('-')[2], 10);
-          toggleCitation(index);
+          // Get the button element (could be span child or button itself)
+          let buttonEl = e.target as HTMLElement;
+          // If the click was on the span, get its parent button
+          if (!buttonEl.id || !buttonEl.id.startsWith('cite-btn-')) {
+            buttonEl = buttonEl.closest('.cite-btn') as HTMLElement;
+          }
+          
+          if (buttonEl && buttonEl.id) {
+            const index = parseInt(buttonEl.id.split('-')[2], 10);
+            toggleCitation(index);
+          }
         });
       });
     });
