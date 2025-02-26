@@ -49,34 +49,36 @@ const t={preserveBehavior:!1},e=e=>{if("string"==typeof e)return[e,t];const[n,r=
 			localStorage.setItem('theme', isDark ? 'dark' : 'light');
 		};
 		document.getElementById('themeToggle')?.addEventListener('click', handleToggleClick);
-	</script> </header> <div class="py-8 min-h-[calc(100vh-160px)]">  <div class="container"> <div class="mb-10"> <h1 class="text-3xl font-bold mb-2">All Publications</h1> <!-- <p class="text-zinc-700 dark:text-zinc-300 text-lg">All my project portfolio from real projects to open source projects.</p> --> </div> <div class="grid grid-cols-1 gap-5"> <div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-1.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex justify-between items-center"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> Machine Learning </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> Deep Learning </span> </div>  </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://arxiv.org" target="_blank">Example Paper 1</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p>This is a paper about something</p> </div> <div class="flex justify-end gap-3">  <a class="underline flex items-center gap-2" href="https://arxiv.org" target="_blank">
-Demo
-<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg> </a> </div> </div> </div><div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-2.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex justify-between items-center"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> Dynamical Systems </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> PDE </span> </div>  </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://doi.org" target="_blank" rel="nofollow noopener noreferrer">Example Paper 2</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p>Yet another example paper</p> </div> <div class="flex justify-end gap-3"> <a class="underline flex items-center gap-2" href="https://eigenan.com">
+	</script> </header> <div class="py-8 min-h-[calc(100vh-160px)]">  <div class="container"> <div class="mb-10"> <h1 class="text-3xl font-bold mb-2">All Publications</h1> <!-- <p class="text-zinc-700 dark:text-zinc-300 text-lg">All my project portfolio from real projects to open source projects.</p> --> </div> <div class="grid grid-cols-1 gap-5"> <div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-1.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a href="https://dynamicalsystems.example.com" target="_blank"> John Doe </a> </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a href="https://pde.example.com" target="_blank"> Jane Doe </a> </span> </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://arxiv.org" target="_blank">Example Paper 1</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p>This is a paper about something</p> </div> <div class="flex justify-end gap-3"> <a class="underline flex items-center gap-2" href="/CV_Nan_Li.pdf" target="_blank">
+PDF
+</a>  <a class="underline flex items-center gap-2" href="https://arxiv.org" target="_blank">
+Paper
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg> </a> </div> </div> </div><div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-2.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a target="_blank" rel="nofollow noopener noreferrer">  </a> </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a target="_blank" rel="nofollow noopener noreferrer">  </a> </span> </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://doi.org" target="_blank" rel="nofollow noopener noreferrer">Example Paper 2</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p>Yet another example paper</p> </div> <div class="flex justify-end gap-3">  <a class="underline flex items-center gap-2" href="https://eigenan.com">
 Article
 </a> <a class="underline flex items-center gap-2" href="https://doi.org" target="_blank" rel="nofollow noopener noreferrer">
-Demo
-<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg> </a> </div> </div> </div><div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-3.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex justify-between items-center"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> React </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300"> UI Library </span> </div>  </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://paradise-ui.com" target="_blank">Paradise UI</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p></p> </div> <div class="flex justify-end gap-3"> <a class="underline flex items-center gap-2" href="https://devaradise.com/how-i-build-paradise-ui-react-component-library/">
+Paper
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg> </a> </div> </div> </div><div class="flex justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5"> <div> <img src="/blog-placeholder-3.jpg" alt="Publication" width="250" class="rounded"> </div> <div class="flex-1"> <div class="flex gap-2"> <span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a target="_blank">  </a> </span><span class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                                  text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
+                                  transition-all duration-700
+                                hover:border-zinc-700 dark:hover:border-zinc-300"> <a target="_blank">  </a> </span> </div> <h3 class="font-semibold my-2"> <a class="underline" href="https://paradise-ui.com" target="_blank">Paradise UI</a> </h3> <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 min-h-[50px]"> <p></p> </div> <div class="flex justify-end gap-3">  <a class="underline flex items-center gap-2" href="https://devaradise.com/how-i-build-paradise-ui-react-component-library/">
 Article
 </a> <a class="underline flex items-center gap-2" href="https://paradise-ui.com" target="_blank">
-Demo
+Paper
 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg> </a> </div> </div> </div> </div> </div>  </div> <footer class="container mt-8"> <!-- <div class="justify-center flex gap-4 py-8 prose dark:prose-invert text-sm">
     <a href="#">Newsletter</a>
     <a href="#">Buy me a Coffee</a>

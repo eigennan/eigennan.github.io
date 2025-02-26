@@ -2,38 +2,52 @@ import { getRepositoryDetails } from "../../utils";
 
 export interface Publications {
   name: string;
-  demoLink: string;
-  tags?: string[],
-  description?: string;
+  paperLink: string;
+  authors?: {
+    name: string;
+    url?: string;
+  }[];
+  abstract?: string;
   postLink?: string;
-  demoLinkRel?: string;
+  paperLinkRel?: string;
   image: string;
+  pdf: string;
   [key: string]: any;
 }
 
 export const publications: Publications[] = [
   {
     name: 'Example Paper 1',
-    description: 'This is a paper about something',
-    demoLink: 'https://arxiv.org',
-    tags: ['Machine Learning', 'Deep Learning'],
-    image: '/blog-placeholder-1.jpg'
+    abstract: 'This is a paper about something',
+    paperLink: 'https://arxiv.org',
+    authors: [
+        {
+          name: 'John Doe',
+          url: 'https://dynamicalsystems.example.com'
+        },
+        {
+          name: 'Jane Doe',
+          url: 'https://pde.example.com'
+        }
+      ],
+    image: '/blog-placeholder-1.jpg',
+    pdf: '/CV_Nan_Li.pdf'
   },
   {
     name: 'Example Paper 2',
-    description: 'Yet another example paper',
-    demoLink: 'https://doi.org',
-    demoLinkRel: 'nofollow noopener noreferrer',
+    abstract: 'Yet another example paper',
+    paperLink: 'https://doi.org',
+    paperLinkRel: 'nofollow noopener noreferrer',
     postLink: 'https://eigenan.com',
-    tags: ['Dynamical Systems', 'PDE'],
+    authors: ['Dynamical Systems', 'PDE'],
     image: '/blog-placeholder-2.jpg'
   },
   {
     ...(await getRepositoryDetails('devaradise/paradise-ui')),
     name: 'Paradise UI',
-    demoLink: 'https://paradise-ui.com',
+    paperLink: 'https://paradise-ui.com',
     postLink: 'https://devaradise.com/how-i-build-paradise-ui-react-component-library/',
-    tags: ['React', 'UI Library'],
+    authors: ['React', 'UI Library'],
     image: '/blog-placeholder-3.jpg'
   },
 ]
