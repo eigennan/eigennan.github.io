@@ -9,10 +9,13 @@ import Prose from '../components/Prose.astro';
 import { projects } from './projects/projects';
 import ProjectList from '../components/ProjectList.astro'
 import PostItem from '../components/PostItem.astro';
+import { publications } from './publications/publications';
+import PublicationList from '../components/PublicationList.astro'
 
 type BlogPost = CollectionEntry<'blog'>;
 
 const top6Projects = projects.slice(0, 6);
+const recentPublications = publications.slice(0, 2);
 const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()).slice(0, 5);
 ---
 
@@ -31,7 +34,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
       <Image src={Ava} alt="Nan Li" width={270} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
 		</div>
 		<main>
-      <div class='mt-6 mb-12'>
+      <!-- <div class='mt-6 mb-12'>
         <div class="flex justify-between gap-2 border-b mb-1 dark:border-b-zinc-700">
           <h2 class="text-lg font-bold mb-3">Recent Posts</h2>
           <a href="/posts/" class="inline-block py-2 underline dark:prose-invert">All posts &raquo;</a>
@@ -45,14 +48,21 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
         </div>
         <div class="text-right">
         </div>
-      </div>
+      </div> -->
       <div>
+        <div class="flex justify-between gap-2 mb-1">
+          <h2 class="text-lg font-bold mb-3">Recent Publications</h2>
+          <a href="/publications/" class="inline-block py-2 underline dark:prose-invert">All Publications &raquo;</a>
+        </div>
+        <PublicationList publications={recentPublications}/>
+      </div>
+      <!-- <div>
         <div class="flex justify-between gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">My Projects</h2>
           <a href="/projects/" class="inline-block py-2 underline dark:prose-invert">All projects &raquo;</a>
         </div>
         <ProjectList projects={top6Projects}/>
-      </div>
+      </div> -->
 		</main>
 	</div>
 </BaseLayout>
