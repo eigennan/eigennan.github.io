@@ -154,7 +154,7 @@ declare module 'astro:content' {
 		"blog": {
 "2025-02-24-blog-template/index.md": {
 	id: "2025-02-24-blog-template/index.md";
-  slug: "template";
+  slug: "how-i-built-my-website";
   body: string;
   collection: "blog";
   data: InferEntrySchema<"blog">

@@ -34,7 +34,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
       <Image src={Ava} alt="Nan Li" width={270} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
 		</div>
 		<main>
-      <!-- <div class='mt-6 mb-12'>
+      <div class='mt-6 mb-12'>
         <div class="flex justify-between gap-2 border-b mb-1 dark:border-b-zinc-700">
           <h2 class="text-lg font-bold mb-3">Recent Posts</h2>
           <a href="/posts/" class="inline-block py-2 underline dark:prose-invert">All posts &raquo;</a>
@@ -48,7 +48,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
         </div>
         <div class="text-right">
         </div>
-      </div> -->
+      </div>
       <div>
         <div class="flex justify-between gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">Recent Publications</h2>
