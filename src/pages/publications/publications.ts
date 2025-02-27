@@ -67,5 +67,12 @@ export const publications: Publications[] = [
         }
       ],
     image: '/ccis.png',
+    bibtex: `@article{hill2022,
+      title={Counting compatible indexing systems for
+      Cpn},
+      author={Michael A. Hill and Ji-xiang Meng and Nan Li},
+      journal={Orbita Mathematicae},
+      year={2022},
+    }`,
   },
 ]
