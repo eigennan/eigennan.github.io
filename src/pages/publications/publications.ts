@@ -33,7 +33,7 @@ export const publications: Publications[] = [
           url: 'https://www.math.umn.edu/~scheel/'
         }
       ],
-    journal: 'London Math. Soc. Lecture Note Ser.',
+    journal: 'London Mathematical Society Lecture Note Series',
     image: '/spiral.png',
     pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
     bibtex: `@article{li2024,
