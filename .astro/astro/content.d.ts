@@ -210,6 +210,13 @@ declare module 'astro:content' {
   collection: "blog_archive";
   data: any
 } & { render(): Render[".md"] };
+"2025-02-27-multivariable-calculus-meme/index.md": {
+	id: "2025-02-27-multivariable-calculus-meme/index.md";
+  slug: "multivairable-calculus-meme";
+  body: string;
+  collection: "blog_archive";
+  data: any
+} & { render(): Render[".md"] };
 };
 
 	};
