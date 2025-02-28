@@ -11,7 +11,7 @@ coverImage: './astro-banner.png'
 
 ## Astro Template
 
-My website is based on [devolio][1], an Astro based blog template that offers blazing fast response and no-frill, minimalist layout. I then added few more functionalities such as hover effects, cite buttons for publications and [KaTeX][3] support.
+My website is based on [devolio][1], an Astro based blog template that offers blazing fast response and no-frill, minimalist layout. I then added few more functionalities/cosmetic changes such as hover effects, cite buttons for publications and [KaTeX][3] support.
 
 ## Hosting
 
