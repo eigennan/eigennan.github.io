@@ -16,6 +16,7 @@ export interface Publications {
   bibtex?: string;
   journal?: string;
   [key: string]: any;
+  year?: number;
 }
 
 export const publications: Publications[] = [
@@ -34,6 +35,7 @@ export const publications: Publications[] = [
         }
       ],
     journal: 'London Mathematical Society Lecture Note Series',
+    year: 2024,
     image: '/spiral.png',
     pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
     bibtex: `@article{li2024,
@@ -66,6 +68,7 @@ export const publications: Publications[] = [
             url: 'https://nanli.co'
         }
       ],
+    year: 2022,
     image: '/ccis.png',
     bibtex: `@article{hill2022,
       title={Counting compatible indexing systems for
