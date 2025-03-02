@@ -11,31 +11,43 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
   <div class="container mx-auto px-4">
     <h1 class="text-3xl font-bold mb-6">Projects</h1>
     
-    <!-- Tag filtering bar -->
-    <div class="mb-8">
-      <div class="flex flex-wrap gap-2 items-center">
-        <span class="text-zinc-700 dark:text-zinc-300 mr-2">Filter by:</span>
-        <button id="clear-filter" class="border border-zinc-300 dark:border-zinc-700 rounded-2xl
-          text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 transition-all duration-700
-          hover:border-zinc-700 dark:hover:border-zinc-300 hidden">
-          Clear filter
-        </button>
-        
-        {allTags.map((tag) => (
-          <button
-            class="tag-filter border border-zinc-300 dark:border-zinc-700 rounded-2xl
-              text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 transition-all duration-700
-              hover:border-zinc-700 dark:hover:border-zinc-300"
-            data-tag={tag}
-          >
-            {tag}
-          </button>
-        ))}
+    <div class="flex flex-col md:flex-row gap-6">
+      <!-- Tag filtering sidebar -->
+      <div class="md:w-36 shrink-0">
+        <div class="sticky top-6">
+          <h3 class="text-lg font-medium mb-3">Filter by tag:</h3>
+          <div class="flex flex-col gap-2 mb-4">
+            <button id="clear-filter" class="border border-red-300 dark:border-red-700 rounded-2xl
+              bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300 px-3 py-1 
+              transition-all duration-700 flex items-center gap-1.5
+              hover:border-red-500 dark:hover:border-red-500 text-left hidden">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+              Clear filter
+            </button>
+            
+            {allTags.map((tag) => (
+              <button
+                class="tag-filter border border-zinc-300 dark:border-zinc-700 rounded-2xl
+                  text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 transition-all duration-700
+                  hover:border-zinc-700 dark:hover:border-zinc-300 text-left break-words"
+                data-tag={tag}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
-    
-    <div id="project-container">
-      <ProjectList projects={projects} />
+      
+      <!-- Project content area -->
+      <div class="flex-1">
+        <div id="project-container">
+          <ProjectList projects={projects} />
+        </div>
+      </div>
     </div>
   </div>
 </BaseLayout>
@@ -59,7 +71,7 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       
       if (filtered.length === 0) {
         const noResults = document.createElement('div');
-        noResults.className = 'col-span-12 text-center py-8 text-zinc-500';
+        noResults.className = 'text-center py-8 text-zinc-500';
         noResults.textContent = 'No projects match this filter';
         projectContainer.appendChild(noResults);
         return;

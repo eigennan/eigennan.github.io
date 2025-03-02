@@ -29,7 +29,7 @@ export const projects: Project[] = [
     description: 'Payroll and HR Management Information System',
     demoLink: 'https://sellercraft.co',
     demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Data-driven", "Gausssian Process"],
+    tags: ["Data-driven", "Gaussian Process"],
   },
   {
     ...(await getRepositoryDetails('devaradise/paradise-ui')),
