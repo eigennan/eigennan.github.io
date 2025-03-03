@@ -16,7 +16,7 @@ const { projects } = Astro.props
           <a class="underline" href={project.demoLink} target="_blank" rel={project.demoLinkRel}>{project.name}</a>
         </h3>
         <div class="text-zinc-600 dark:text-zinc-300 mb-4 description-container text-sm flex-grow">
-          <p class="description-text line-clamp-2 min-h-[40px] max-h-[40px]" id={`description-${index}`}>{project.description}</p>
+          <p class="description-text line-clamp-2 min-h-[60px] max-h-[60px]" id={`description-${index}`}>{project.description}</p>
           <p class="description-text-full hidden" id={`description-full-${index}`}>{project.description}</p>
           {project.description && project.description.length > 100 && (
             <button 
