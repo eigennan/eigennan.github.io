@@ -10,55 +10,25 @@ const { projects } = Astro.props
 ---
 <div class="grid grid-cols-12 gap-5">
   {
-    projects.map((project: Project) => 
-      <div class="col-span-12 sm:col-span-6 lg:col-span-4 border dark:border-zinc-700 rounded-xl shadow-sm p-5">
-        {/* <div class="flex justify-between items-center">
-          <div class='flex gap-2'>
-            {
-              (project.tags || [] )?.map((tag: string) => (
-                <span
-                  class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300'
-                  >
-                  {tag}
-                </span>
-              ))
-            }
-          </div>
-
-          {project.stargazers_count !== undefined && (
-            <div class='shrink-0'>
-              <a
-                href={project.html_url}
-                target="_blank"
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-xs text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-700
-                  hover:border-zinc-700 dark:hover:border-zinc-300
-                    flex items-center gap-1
-              '>
-                <Image src={GithubBlack} height={12} class='dark:hidden' alt='Github stars' />
-                <Image src={GithubWhite} height={12} class='hidden dark:block' alt='Github stars' />
-                {kFormatter(project.stargazers_count)} stars
-              </a>
-            </div>
-          )}
-        </div> */}
+    projects.map((project: Project, index: number) => 
+      <div class="col-span-12 sm:col-span-6 lg:col-span-4 border dark:border-zinc-700 rounded-xl shadow-sm p-5 flex flex-col h-full">
         <h3 class="font-semibold mb-2">
           <a class="underline" href={project.demoLink} target="_blank" rel={project.demoLinkRel}>{project.name}</a>
         </h3>
-        <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 text-sm min-h-[50px]">
-          <p>{project.description}</p>
+        <div class="text-zinc-600 dark:text-zinc-300 mb-4 description-container text-sm flex-grow">
+          <p class="description-text line-clamp-2 min-h-[40px] max-h-[40px]" id={`description-${index}`}>{project.description}</p>
+          <p class="description-text-full hidden" id={`description-full-${index}`}>{project.description}</p>
+          {project.description && project.description.length > 100 && (
+            <button 
+              id={`read-more-${index}`} 
+              class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 read-more-btn"
+              onclick={`toggleDescription(${index})`}
+            >
+              Read more
+            </button>
+          )}
         </div>
-        <div class="flex justify-end gap-3">
-          {/* {
-            project.postLink &&
-            <a class="underline flex items-center gap-2" href={project.postLink}>
-              Article
-            </a>
-          } */}
+        <div class="flex justify-end gap-3 mt-auto">
           {
             project.postLink &&
             <a 
@@ -85,15 +55,45 @@ const { projects } = Astro.props
               Demo
             </a>
           }
-          {/* {
-            project.demoLink &&  // This line adds the conditional check for the Demo link
-            <a class="underline flex items-center gap-2" href={project.demoLink} target="_blank" rel={project.demoLinkRel}>
-              Demo 
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-            </a>
-          } */}
         </div>
       </div>
     )
   }
 </div>
+
+<!-- Read More and Show Less Button Functionality -->
+<script>
+  function toggleDescription(index: number) {
+    const descriptionEl = document.getElementById(`description-${index}`);
+    const descriptionFullEl = document.getElementById(`description-full-${index}`);
+    const buttonEl = document.getElementById(`read-more-${index}`);
+    
+    if (!descriptionEl || !descriptionFullEl || !buttonEl) return;
+    
+    if (descriptionEl.classList.contains('line-clamp-2')) {
+      // Expand
+      descriptionEl.classList.remove('line-clamp-2');
+      descriptionEl.classList.add('hidden');
+      descriptionFullEl.classList.remove('hidden');
+      buttonEl.textContent = 'Show less';
+    } else {
+      // Collapse
+      descriptionEl.classList.add('line-clamp-2');
+      descriptionEl.classList.remove('hidden');
+      descriptionFullEl.classList.add('hidden');
+      buttonEl.textContent = 'Read more';
+    }
+  }
+
+  // Initialize all buttons
+  document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.read-more-btn');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const index = parseInt(target.id.split('-')[2], 10);
+        toggleDescription(index);
+      });
+    });
+  });
+</script>

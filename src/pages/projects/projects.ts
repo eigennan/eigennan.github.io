@@ -19,7 +19,7 @@ export const projects: Project[] = [
   },
   {
     name: 'Sellercraft App',
-    description: 'An Ecommerce omnichannel platform in Southeast Asia',
+    description: 'We count the number of compatible pairs of indexing systems for the cyclic group $C_{p^n}$. Building on work of Balchin--Barnes--Roitzheim, we show that this sequence of natural numbers is another family of Fuss--Catalan numbers. We count this two different ways: showing how the conditions of compatibility give natural recursive formulas for the number of admissible sets and using an enumeration of ways to extend indexing systems by conceptually simpler pieces.',
     demoLink: 'https://sellercraft.co',
     demoLinkRel: 'nofollow noopener noreferrer',
     tags: ["Machine Learning", "Pytorch"],
