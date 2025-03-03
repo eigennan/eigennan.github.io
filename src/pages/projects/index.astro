@@ -81,8 +81,8 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       const projectList = document.createElement('div');
       projectList.className = 'grid grid-cols-12 gap-5';
       
-      filtered.forEach(project => {
-        const projectCard = createProjectCard(project);
+      filtered.forEach((project, index) => {
+        const projectCard = createProjectCard(project, index);
         projectList.appendChild(projectCard);
       });
       
@@ -90,9 +90,9 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     }
     
     // Helper function to create a project card
-    function createProjectCard(project) {
+    function createProjectCard(project, index) {
       const card = document.createElement('div');
-      card.className = 'col-span-12 sm:col-span-6 lg:col-span-4 border dark:border-zinc-700 rounded-xl shadow-sm p-5';
+      card.className = 'col-span-12 sm:col-span-6 lg:col-span-4 border dark:border-zinc-700 rounded-xl shadow-sm p-5 flex flex-col h-full';
       
       // Project title
       const title = document.createElement('h3');
@@ -100,21 +100,48 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       const titleLink = document.createElement('a');
       titleLink.className = 'underline';
       titleLink.href = project.demoLink || '#';
-      titleLink.target = '_blank';
-      titleLink.rel = project.demoLinkRel || 'noopener';
+      if (project.demoLink) {
+        titleLink.target = '_blank';
+        titleLink.rel = project.demoLinkRel || 'noopener';
+      }
       titleLink.textContent = project.name;
       title.appendChild(titleLink);
       
-      // Project description
-      const descDiv = document.createElement('div');
-      descDiv.className = 'line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-4 text-sm min-h-[50px]';
-      const descP = document.createElement('p');
-      descP.textContent = project.description;
-      descDiv.appendChild(descP);
+      // Project description container
+      const descContainer = document.createElement('div');
+      descContainer.className = 'text-zinc-600 dark:text-zinc-300 mb-4 description-container text-sm flex-grow';
+      
+      // Short description with line clamp
+      const descShort = document.createElement('p');
+      descShort.className = 'description-text line-clamp-2 min-h-[60px] max-h-[60px]';
+      descShort.id = `description-${index}`;
+      descShort.textContent = project.description;
+      
+      // Full description (hidden initially)
+      const descFull = document.createElement('p');
+      descFull.className = 'description-text-full hidden';
+      descFull.id = `description-full-${index}`;
+      descFull.textContent = project.description;
+      
+      // Add descriptions to container
+      descContainer.appendChild(descShort);
+      descContainer.appendChild(descFull);
+      
+      // Add read more button if description is long enough
+      if (project.description && project.description.length > 100) {
+        const readMoreBtn = document.createElement('button');
+        readMoreBtn.id = `read-more-${index}`;
+        readMoreBtn.className = 'text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 read-more-btn';
+        readMoreBtn.textContent = 'Read more';
+        readMoreBtn.onclick = function() {
+          toggleDescription(index);
+        };
+        descContainer.appendChild(readMoreBtn);
+      }
       
       // Links section
       const linksDiv = document.createElement('div');
-      linksDiv.className = 'flex justify-end gap-3';
+      linksDiv.className = 'flex justify-end gap-3 mt-auto';
       
       // Add article link if exists
       if (project.postLink) {
@@ -138,10 +165,33 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       
       // Assemble card
       card.appendChild(title);
-      card.appendChild(descDiv);
+      card.appendChild(descContainer);
       card.appendChild(linksDiv);
       
       return card;
+    }
+    
+    // Copy the toggleDescription function from ProjectList.astro
+    function toggleDescription(index) {
+      const descriptionEl = document.getElementById(`description-${index}`);
+      const descriptionFullEl = document.getElementById(`description-full-${index}`);
+      const buttonEl = document.getElementById(`read-more-${index}`);
+      
+      if (!descriptionEl || !descriptionFullEl || !buttonEl) return;
+      
+      if (descriptionEl.classList.contains('line-clamp-2')) {
+        // Expand
+        descriptionEl.classList.remove('line-clamp-2');
+        descriptionEl.classList.add('hidden');
+        descriptionFullEl.classList.remove('hidden');
+        buttonEl.textContent = 'Show less';
+      } else {
+        // Collapse
+        descriptionEl.classList.add('line-clamp-2');
+        descriptionEl.classList.remove('hidden');
+        descriptionFullEl.classList.add('hidden');
+        buttonEl.textContent = 'Read more';
+      }
     }
     
     // Add click handlers to tag buttons
