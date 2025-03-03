@@ -175,6 +175,38 @@ Demo
       });
       
       projectContainer.appendChild(projectList);
+
+      // Re-render KaTeX expressions in the dynamically created content
+      if (typeof renderMathInElement !== 'undefined') {
+        // For KaTeX auto-render extension
+        document.querySelectorAll('.description-text, .description-text-full').forEach(el => {
+          renderMathInElement(el, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+          });
+        });
+      } else if (window.katex) {
+        // Direct KaTeX API
+        document.querySelectorAll('.description-text, .description-text-full').forEach(el => {
+          const mathElements = el.querySelectorAll('.math, .katex');
+          mathElements.forEach(math => {
+            const text = math.textContent || math.getAttribute('data-math');
+            if (text) {
+              try {
+                katex.render(text, math);
+              } catch (e) {
+                console.error("KaTeX rendering error:", e);
+              }
+            }
+          });
+        });
+      } else if (window.MathJax) {
+        // For MathJax as fallback
+        MathJax.typeset && MathJax.typeset();
+      }
     }
     
     // Helper function to create a project card
