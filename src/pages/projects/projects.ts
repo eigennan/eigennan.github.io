@@ -7,6 +7,7 @@ export interface Project {
   description?: string;
   postLink?: string;
   demoLinkRel?: string;
+  paperLink?: string;
   [key: string]: any;
 }
 
@@ -16,6 +17,7 @@ export const projects: Project[] = [
     description: 'A blog that sharing web development resources and tutorials',
     demoLink: 'https://devaradise.com',
     tags: ["JavaScript", "React"],
+    paperLink: 'https://devaradise.com',
   },
   {
     name: 'Sellercraft App',
