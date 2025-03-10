@@ -21,7 +21,17 @@ import Prose from '../components/Prose.astro';
           </div>
         </Prose>
       </div>
-      <Image src={Ava} alt="Nan Li" width={270} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
+      
+      <!-- Photo and name section -->
+      <div class="flex flex-col items-center shrink-0">
+        <div class="w-[270px]">
+          <Image src={Ava} alt="Nan Li" width={270} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
+        </div>
+        <div class="text-center mt-3">
+          <h2 class="chinese-text text-3xl">李楠</h2>
+          <!-- <p class="text-zinc-600 dark:text-zinc-400 text-sm">Ph.D. Candidate</p> -->
+        </div>
+      </div>
     </div>     
 		<main class='prose text-lg dark:prose-invert'>
       <article>
@@ -44,8 +54,14 @@ import Prose from '../components/Prose.astro';
             $$
             \sum_0^\infty
             $$
-            
           </p>
+        </div> -->
+        <!-- <div>
+          <p class="chinese-text">我是一名数学博士生，目前在明尼苏达大学攻读博士学位，导师是Arnd Scheel教授。我毕业于加州大学洛杉矶分校，获得数学学士学位。</p>
+          <p lang="zh">我的研究兴趣在于偏微分方程和动力系统的交叉领域。我的研究主要集中在反应扩散系统中的图案形成，以及其在生物学中的应用。</p>
+        </div> -->
+        <!-- <div style="font-family: 'Chinese Font', sans-serif;">
+          这是使用内联样式的中文文本。
         </div> -->
       </article>
     </main>

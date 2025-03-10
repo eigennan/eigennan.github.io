@@ -8,6 +8,14 @@
 	}
 }
 
+@font-face {
+  font-family: 'Chinese Font';
+  src: url('/fonts/fzlbgbk.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 .social-icons a:hover{
     transform: scale(1.1);
 	transition: all 0.1s ease-in-out;
@@ -19,3 +27,21 @@
     height: 200px;
     max-width: 250px;
 }
+
+/* For specific elements */
+.chinese-text {
+  font-family: 'Chinese Font', sans-serif;
+}
+
+/* Or globally */
+/* html {
+  font-family: 'Chinese Font', system-ui, sans-serif;
+} */
+
+/* Or for just Chinese characters */
+:lang(zh) {
+  font-family: 'Chinese Font', sans-serif;
+}
+
+
+
