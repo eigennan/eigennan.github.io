@@ -13,7 +13,14 @@ const { publications } = Astro.props
         {/* Remove the absolute positioned year */}
         
         <div class="cover-box mx-auto md:mx-0 mb-4 md:mb-0">
-            <img src={publication.image} alt="Publication" class="rounded"/>
+            <Image 
+                src={publication.image} 
+                alt={publication.name || "Publication"} 
+                width={230} 
+                height={300}
+                class="rounded"
+                loading="eager"
+            />
         </div>
         <div class="flex-1 gap-2 flex flex-col">
           {/* Authors and year on same row */}
