@@ -6,7 +6,7 @@ description: 'A tutorial for building a personal website using Astro and Github 
 pubDate: '2025-02-24'
 updatedDate: '2025-02-24'
 tags: ["Astro", "Guide", "Github Pages"]
-coverImage: './astro-banner.png'
+# coverImage: './astro-banner.png'
 ---
 
 ## Astro Template
