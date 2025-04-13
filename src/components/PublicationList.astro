@@ -155,8 +155,9 @@ const { publications } = Astro.props
 
         <!-- Add BibTeX Citation Toggle -->
         <pre 
-        id={`citation-${index}`} 
-        class="hidden mt-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs overflow-x-auto"
+          id={`citation-${index}`} 
+          class="hidden mt-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs overflow-x-auto w-full"
+          style="white-space: pre-wrap; word-break: break-word; max-width: 100%;"
         >{publication.bibtex || `@article{${publication.name.split(' ')[0].toLowerCase()}${new Date().getFullYear()},
         title={${publication.name}},
         author={${(publication.authors || []).map(a => a.name).join(' and ')}},
