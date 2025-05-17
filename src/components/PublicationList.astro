@@ -49,11 +49,6 @@ const { publications } = Astro.props
           <h3 class="font-semibold my-1">
             <a class="hover:underline" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>{publication.name}</a>
           </h3>
-          
-          {/* Rest of the content remains unchanged */}
-        {/* <div class="line-clamp-2 text-zinc-600 dark:text-zinc-300 mb-2 min-h-[40px]">
-          <p>{publication.abstract}</p>
-        </div> */}
 
         {/* Read more toggle */}
         <div class="text-zinc-600 dark:text-zinc-300 mb-2 abstract-container text-sm flex-grow">
@@ -164,65 +159,6 @@ const { publications } = Astro.props
         journal={Journal},
         year={${new Date().getFullYear()}}
         }`}</pre>
-
-
-        {/* <div class="mt-auto flex justify-end gap-3">
-            {
-                publication.pdf &&
-                <a class="flex items-center gap-2" href={publication.pdf} target="_blank" rel={publication.paperLinkRel}>
-                    <span
-                    class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-0
-                    hover:border-zinc-700 dark:hover:border-zinc-300'
-                    >
-                        PDF
-                    </span>
-                </a>
-            }
-        
-            {
-                publication.postLink &&
-                <a class="flex items-center gap-2" href={publication.postLink}>
-                <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
-                hover:border-zinc-700 dark:hover:border-zinc-300'
-                >
-                    Article
-                </span>
-                </a>
-            }
-
-            {
-                publication.code &&  // This line adds the conditional check for the Demo link
-                <a class="flex items-center gap-2" href={publication.code} target="_blank" rel={publication.paperLinkRel}>
-                <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
-                hover:border-zinc-700 dark:hover:border-zinc-300'
-                >
-                    Code
-                </span>
-                </a>
-            }
-        
-            {
-                publication.paperLink &&  // This line adds the conditional check for the Demo link
-                <a class="flex items-center gap-2" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
-                <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
-                hover:border-zinc-700 dark:hover:border-zinc-300'
-                >
-                    DOI
-                </span>
-                </a>
-            }
-        </div> */}
         </div>
       </div>
     )
@@ -253,23 +189,7 @@ const { publications } = Astro.props
       }
     }
 
-    // Add Citation Toggle Function
-    // function toggleCitation(index: number) {
-    //   const citationEl = document.getElementById(`citation-${index}`);
-    //   const buttonEl = document.getElementById(`cite-btn-${index}`);
-      
-    //   if (!citationEl || !buttonEl) return;
-      
-    //   if (citationEl.classList.contains('hidden')) {
-    //     // Show citation
-    //     citationEl.classList.remove('hidden');
-    //     buttonEl.textContent = 'Hide citation';
-    //   } else {
-    //     // Hide citation
-    //     citationEl.classList.add('hidden');
-    //     buttonEl.textContent = 'Cite';
-    //   }
-    // }
+    // Citation Toggle Function
     function toggleCitation(index: number) {
       const citationEl = document.getElementById(`citation-${index}`);
       const buttonEl = document.getElementById(`cite-btn-${index}`);
@@ -301,14 +221,6 @@ const { publications } = Astro.props
       });
 
     // New citation button initialization
-    // const citeButtons = document.querySelectorAll('.cite-btn');
-    //   citeButtons.forEach(btn => {
-    //     btn.addEventListener('click', (e) => {
-    //       const target = e.target as HTMLElement;
-    //       const index = parseInt(target.id.split('-')[2], 10);
-    //       toggleCitation(index);
-    //     });
-    //   });
     const citeButtons = document.querySelectorAll('.cite-btn');
       citeButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
