@@ -6,6 +6,12 @@
 	code {
 		font-size: 0.875rem;
 	}
+
+  /* Keep layout width stable when scrollbars appear */
+  html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable both-edges;
+  }
 }
 
 @font-face {
