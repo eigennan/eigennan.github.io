@@ -49,5 +49,25 @@
   font-family: 'Chinese Font', sans-serif;
 }
 
+.gist-embed {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 2rem 0;
+}
+.gist-embed > script {
+  display: none; /* suppress GitHub’s placeholder text */
+}
 
+/* Keep GitHub gist a11y text visually hidden */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
