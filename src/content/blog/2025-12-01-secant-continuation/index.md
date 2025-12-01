@@ -57,7 +57,7 @@ The trick is to view $v=(u,\mu)$ as a single item and, instead of continuing in 
 
 ## Secant Continuation
 
-Sometimes the kernel $e$ of $D_u F(v_0)$ can be cumbersome to compute. An alternative to a vector $e$ in the arclenth direction is the secant vector, given by $e := v_0 - v_{-1}$ where $v_{-1}$ is the solution found in the previous continuation step. The upside is that we don't have to go through the hassle computing a kernel; the downside is that now we need to initialize the algorithm with two known solutions (they better be near each other to produce a good secant vector that closely traces the bifurcation curve). We should also keep track of two solutions $v_{-1}$ and $v_0$, instead of just on in the arclength continuation, throughout the continuation.
+Sometimes the kernel $e$ of $D_u F(v_0)$ can be cumbersome to compute. An alternative to a vector $e$ in the arclenth direction is the secant vector, given by $e := v_0 - v_{-1}$ where $v_{-1}$ is the solution found in the previous continuation step. The upside is that we don't have to go through the hassle computing a kernel; the downside is that now we need to initialize the algorithm with two known solutions (they better be near each other to produce a good secant vector that closely traces the bifurcation curve). We should also keep track of two solutions $v_{-1}$ and $v_0$, instead of just one in the arclength continuation, throughout the continuation.
 
 The secant continuation goes like this:
 
