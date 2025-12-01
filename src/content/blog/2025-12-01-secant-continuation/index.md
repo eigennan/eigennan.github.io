@@ -1,5 +1,5 @@
 ---
-title: 'Secant Continuation: An Example'
+title: 'Why Secant Continuation?'
 seoTitle: 'secant continuation'
 slug: 'secant-continuation'
 description: 'A concrete example of using secant continuation to overcome fold points'
