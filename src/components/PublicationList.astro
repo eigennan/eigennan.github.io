@@ -9,7 +9,7 @@ const { publications } = Astro.props
 <div class="grid grid-cols-1 gap-5">
   {
     publications.map((publication: Publications, index: number) => 
-  <div class="flex flex-col md:flex-row justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-0 hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500">
+  <div class="flex flex-col md:flex-row justify-between gap-10 border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500">
         <div class="cover-box mx-auto md:mx-0 mb-4 md:mb-0">
             <Image 
                 src={publication.image} 
@@ -50,12 +50,12 @@ const { publications } = Astro.props
 
         {/* Read more toggle */}
         <div class="text-zinc-600 dark:text-zinc-300 mb-2 abstract-container text-sm flex-grow">
-            <p class="abstract-text line-clamp-2 min-h-[60px] max-h-[60px]" id={`abstract-${index}`}>{publication.abstract}</p>
-            <p class="abstract-text-full hidden" id={`abstract-full-${index}`}>{publication.abstract}</p>
+            <p class="abstract-text line-clamp-2 min-h-[60px] max-h-[60px]" id={`publication-abstract-${index}`}>{publication.abstract}</p>
+            <p class="abstract-text-full hidden" id={`publication-abstract-full-${index}`}>{publication.abstract}</p>
             <button 
-              id={`read-more-${index}`} 
-              class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 read-more-btn"
-              onclick={`toggleAbstract(${index})`}
+              id={`publication-read-more-${index}`} 
+              class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 publication-read-more-btn"
+              onclick={`togglePublicationAbstract(${index})`}
             >
               Read more
             </button>
@@ -81,7 +81,7 @@ const { publications } = Astro.props
                     <span
                     class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
                     text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-0
+                    transition-all duration-[220ms]
                     hover:border-zinc-700 dark:hover:border-zinc-300'
                     >
                         Cite
@@ -93,7 +93,7 @@ const { publications } = Astro.props
                     <span
                     class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
                     text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-0
+                    transition-all duration-[220ms]
                     hover:border-zinc-700 dark:hover:border-zinc-300'
                     >
                         PDF
@@ -107,7 +107,7 @@ const { publications } = Astro.props
                 <span
                 class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
                 text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
+                transition-all duration-[220ms]
                 hover:border-zinc-700 dark:hover:border-zinc-300'
                 >
                     Article
@@ -121,7 +121,7 @@ const { publications } = Astro.props
                 <span
                 class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
                 text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
+                transition-all duration-[220ms]
                 hover:border-zinc-700 dark:hover:border-zinc-300'
                 >
                     Code
@@ -135,7 +135,7 @@ const { publications } = Astro.props
                 <span
                 class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
                 text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-0
+                transition-all duration-[220ms]
                 hover:border-zinc-700 dark:hover:border-zinc-300'
                 >
                     Paper
@@ -165,10 +165,10 @@ const { publications } = Astro.props
 
 <!-- Read More and Show Less Button Functionality -->
 <script>
-    function toggleAbstract(index: number) {
-      const abstractEl = document.getElementById(`abstract-${index}`);
-      const abstractFullEl = document.getElementById(`abstract-full-${index}`);
-      const buttonEl = document.getElementById(`read-more-${index}`);
+    function togglePublicationAbstract(index: number) {
+      const abstractEl = document.getElementById(`publication-abstract-${index}`);
+      const abstractFullEl = document.getElementById(`publication-abstract-full-${index}`);
+      const buttonEl = document.getElementById(`publication-read-more-${index}`);
       
       if (!abstractEl || !abstractFullEl || !buttonEl) return;
       
@@ -209,12 +209,13 @@ const { publications } = Astro.props
   
     // Initialize all buttons
     document.addEventListener('DOMContentLoaded', () => {
-      const buttons = document.querySelectorAll('.read-more-btn');
+      const buttons = document.querySelectorAll('.publication-read-more-btn');
       buttons.forEach(btn => {
         btn.addEventListener('click', (e) => {
           const target = e.target as HTMLElement;
-          const index = parseInt(target.id.split('-')[2], 10);
-          toggleAbstract(index);
+          const parts = target.id.split('-');
+          const index = parseInt(parts[parts.length - 1], 10);
+          togglePublicationAbstract(index);
         });
       });
 

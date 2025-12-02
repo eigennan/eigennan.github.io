@@ -43,13 +43,13 @@ const menu = [
 <header
 	id='site-header'
 	class:list={[
-			'flex items-center w-full transition duration-0 z-[999] border-[var(--soft-border-color)]'
+		'flex items-center w-full transition duration-[220ms] z-[999] border-[var(--soft-border-color)]'
 	]}
 >
 	<div class='container'>
 		<nav class='flex gap-4 items-center justify-between py-3'>
 			<h2 class='m-0'>
-				<a href='/' class='flex gap-4 items-center text-2xl font-black transition-transform duration-0 hover:scale-110'>
+				<a href='/' class='flex gap-4 items-center text-2xl font-black transition-transform duration-[220ms] hover:scale-110'>
 					<!-- You can use your site logo, rounded ava or simply your site name here-->
           			<!-- <Image src={AvaLogo} alt='Your site name' class="rounded-full w-11 border-white border-2 shadow-lg"/>  -->
 					{SITE_TITLE}
@@ -86,7 +86,7 @@ const menu = [
 				<a class='p-3 hidden dark:block' href='/CV_Nan_Li.pdf' target='_blank'>
 					<Image src={CVWhite} width={SocialIconSize} height={SocialIconSize} alt='CV logo' loading="eager" />
 				</a>
-				<button class='p-3 transition-transform duration-0 hover:scale-110' id='themeToggle' aria-label='Theme mode'>
+				<button class='p-3 transition-transform duration-[220ms] hover:scale-110' id='themeToggle' aria-label='Theme mode'>
 					<svg
 						class='sun'
 						xmlns='http://www.w3.org/2000/svg'
@@ -122,23 +122,19 @@ const menu = [
 			</div>
 		</nav>
 		<div class='fixed top-3 w-auto max-w-full px-3 left-1/2 -translate-x-1/2 z-[999]'>
-      <div class="flex px-2.5 bg-white/90 dark:bg-zinc-900/75 backdrop-blur-md leading-tight rounded-full border dark:border-zinc-700">
-			<div class="px-2.5 text-sm">
-				<HeaderLink class="py-3 flex items-center transition-transform duration-0 hover:scale-110" href="/" aria-label="Home">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          </HeaderLink>
-        </div>
-        {
-          menu.map((item) => (
-					<div class='px-2.5 text-sm'>
-						<HeaderLink class="py-3 flex items-center transition-transform duration-0 hover:scale-110" href={item.link}>
-                {item.label}
-              </HeaderLink>
-            </div>
-          ))
-        }
-      </div>
-    </div>
+			<div class="glass-nav flex items-center gap-1">
+				<HeaderLink href="/" aria-label="Home">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+				</HeaderLink>
+				{
+					menu.map((item) => (
+						<HeaderLink href={item.link}>
+							{item.label}
+						</HeaderLink>
+					))
+				}
+			</div>
+		</div>
 	</div>
 
 	<style is:global>
@@ -150,6 +146,93 @@ const menu = [
 		}
 		.dark #themeToggle .moon {
 			display: block;
+		}
+
+		.glass-nav {
+			gap: 0.25rem;
+			padding: 0.35rem 0.45rem;
+			border-radius: 999px;
+			background: linear-gradient(120deg, rgba(255, 255, 255, 0.32), rgba(241, 245, 249, 0.15));
+			border: 1px solid rgba(255, 255, 255, 0.35);
+			box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
+			backdrop-filter: blur(25px) saturate(220%);
+			-webkit-backdrop-filter: blur(25px) saturate(220%);
+			font-size: 0.95rem;
+		}
+		.dark .glass-nav {
+			background: linear-gradient(120deg, rgba(30, 30, 34, 0.42), rgba(51, 51, 59, 0.2));
+			border-color: rgba(113, 113, 122, 0.4);
+			box-shadow: 0 25px 55px rgba(0, 0, 0, 0.45);
+		}
+
+		.glass-link {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			padding: 0.6rem 1.15rem;
+			border-radius: 999px;
+			font-weight: 600;
+			font-size: 0.95rem;
+			border: 1px solid rgba(255, 255, 255, 0.25);
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(15, 23, 42, 0.7);
+			transition: color 220ms ease, background 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+		}
+		.dark .glass-link {
+			color: rgba(244, 244, 245, 0.78);
+			border-color: rgba(113, 113, 122, 0.35);
+			background: rgba(39, 39, 42, 0.18);
+		}
+		.glass-link::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.65), transparent 60%);
+			opacity: 0;
+			transition: opacity 300ms ease;
+			pointer-events: none;
+		}
+		.glass-link:hover {
+			color: #0f172a;
+			background: rgba(255, 255, 255, 0.28);
+			border-color: rgba(248, 250, 252, 0.65);
+			box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+			transform: translateY(-1px);
+		}
+		.glass-link:hover::after {
+			opacity: 1;
+		}
+		.dark .glass-link:hover {
+			color: #f4f4f5;
+			background: rgba(82, 82, 91, 0.32);
+			border-color: rgba(113, 113, 122, 0.55);
+			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+		}
+		.glass-link-active {
+			color: #0b1220;
+			background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(236, 244, 255, 0.45));
+			border-color: rgba(255, 255, 255, 0.95);
+			box-shadow:
+				0 20px 36px rgba(15, 23, 42, 0.25),
+				inset 0 1px 0 rgba(255, 255, 255, 0.9),
+				inset 0 -1px 8px rgba(15, 23, 42, 0.12);
+		}
+		.glass-link-active::after {
+			opacity: 1;
+		}
+		.dark .glass-link-active {
+			color: #fafafa;
+			background: linear-gradient(135deg, rgba(59, 59, 66, 0.72), rgba(96, 96, 110, 0.42));
+			border-color: rgba(212, 212, 216, 0.85);
+			box-shadow:
+				0 22px 40px rgba(0, 0, 0, 0.65),
+				inset 0 1px 0 rgba(255, 255, 255, 0.28),
+				inset 0 -1px 8px rgba(0, 0, 0, 0.4);
+		}
+		.dark .glass-link-active::after {
+			opacity: 1;
 		}
 	</style>
 

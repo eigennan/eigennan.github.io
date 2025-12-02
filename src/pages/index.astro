@@ -14,7 +14,7 @@ import PublicationList from '../components/PublicationList.astro'
 
 type BlogPost = CollectionEntry<'blog'>;
 
-const top6Projects = projects.slice(0, 6);
+const top6Projects = projects.slice(0, 2);
 const recentPublications = publications.slice(0, 2);
 const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()).slice(0, 5);
 ---
@@ -23,7 +23,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
 	<div class='container'>
 		<div class='w-full md:flex md:items-start gap-16 mb-10'>
       <div class="text-pretty leading-9">
-        <h1 class="text-3xl font-bold mb-2">Welcome!</h1>
+        <!-- <h1 class="text-3xl font-bold mb-2">Welcome!</h1> -->
         <Prose>
           <div class="text-lg">
             <p>I am a Ph.D. candidate in mathematics at the University of Minnesota, advised by <a href="https://www-users.cse.umn.edu/~scheel/" target="_blank">Arnd Scheel</a>. I graduated from the University of California, Los Angeles with a B.S. in Mathematics.</p>
@@ -58,9 +58,9 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
         </div>
         <PublicationList publications={recentPublications}/>
       </div>
-      <!-- <div>
+      <!-- <div class="mt-12">
         <div class="flex justify-between gap-2 mb-1">
-          <h2 class="text-lg font-bold mb-3">My Projects</h2>
+          <h2 class="text-lg font-bold mb-3">Recent Projects</h2>
           <a href="/projects/" class="inline-block py-2 underline dark:prose-invert">All projects &raquo;</a>
         </div>
         <ProjectList projects={top6Projects}/>
