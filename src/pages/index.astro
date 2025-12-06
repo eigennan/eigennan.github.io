@@ -66,39 +66,89 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
         <ProjectList projects={top6Projects}/>
       </div> -->
 		</main>
-    <main class='prose text-lg dark:prose-invert'>
+    <main class='prose text-lg dark:prose-invert mt-12'>
       <article>
-        <h2 class="font-bold mb-3">Presentations</h2>
-        <ul class="text-sm">
-          <li>
-            <a href="" target="_blank" class="underline">
-              Anchored spirals in the theta model
-            </a>
-            <ul>
-              <li>SIAM Conference on Nonlinear Waves and Coherent Structures, Montréal QC, Canada, 2026</li>
-            </ul>
-          </li>
-          <li>
-            <a href="/DS25Poster.pdf" target="_blank" class="underline">
-              Anchored spirals in sharp-interface and phase oscillator models - Poster
-            </a>
-            <ul>
-              <li>SIAM Conference on Applications of Dynamical Systems, Denver CO, 2025</li>
-              <li>Joint Alabama-Florida Conference on Differential Equations, Dynamical Systems and Applications, Birmingham AL, 2025</li>
-            </ul>
-          </li>
-        </ul>
+      <div class="flex flex-col gap-5">
+          <section>
+            <button
+              type="button"
+          class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left"
+              data-dropdown-target="presentations-panel"
+              aria-expanded="false"
+            >
+              Presentations
+              <span data-icon class="transition-transform duration-200">▼</span>
+            </button>
+        <div id="presentations-panel" class="mt-4 hidden">
+              <ul class="text-sm">
+                <li>
+                  <a href="" target="_blank" class="underline">
+                    Anchored spirals in the theta model
+                  </a>
+                  <ul>
+                    <li>SIAM Conference on Nonlinear Waves and Coherent Structures, Montréal QC, Canada, 2026</li>
+                  </ul>
+                </li>
+                <li>
+                  <a href="/DS25Poster.pdf" target="_blank" class="underline">
+                    Anchored spirals in sharp-interface and phase oscillator models - Poster
+                  </a>
+                  <ul>
+                    <li>SIAM Conference on Applications of Dynamical Systems, Denver CO, 2025</li>
+                    <li>Joint Alabama-Florida Conference on Differential Equations, Dynamical Systems and Applications, Birmingham AL, 2025</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </section>
 
-        <h2 class="font-bold mb-3">Teaching</h2>
-        <h4>Teaching Assistant at University of Minnesota</h4>
-        <ul class="text-sm">
-          <li>MATH 3592H: Honors Mathematics I - F25</li>
-          <li>MATH 2374: Multivariable Calculus - S25, F24</li>
-          <li>MATH 2373: Linear Algebra and Differential Equations - S24, F23</li>
-          <li>MATH 1031: College Algebra & Probability - S23</li>
-          <li>MATH 1271: Calculus I - F22</li>
-        </ul>
+          <section>
+            <button
+              type="button"
+            class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left"
+              data-dropdown-target="teaching-panel"
+              aria-expanded="false"
+            >
+              Teaching
+              <span data-icon class="transition-transform duration-200">▼</span>
+            </button>
+          <div id="teaching-panel" class="mt-4 hidden">
+              <h4>Teaching Assistant at University of Minnesota</h4>
+              <ul class="text-sm">
+                <li>MATH 3592H: Honors Mathematics I - F25</li>
+                <li>MATH 2374: Multivariable Calculus - S25, F24</li>
+                <li>MATH 2373: Linear Algebra and Differential Equations - S24, F23</li>
+                <li>MATH 1031: College Algebra & Probability - S23</li>
+                <li>MATH 1271: Calculus I - F22</li>
+              </ul>
+            </div>
+          </section>
+        </div>
       </article>
     </main>
 	</div>
 </BaseLayout>
+
+<script is:inline>
+  const dropdownButtons = document.querySelectorAll('[data-dropdown-target]');
+
+  dropdownButtons.forEach((button) => {
+    const targetId = button.getAttribute('data-dropdown-target');
+    const panel = targetId ? document.getElementById(targetId) : null;
+    const icon = button.querySelector('[data-icon]');
+    let open = false;
+
+    const syncState = () => {
+      button.setAttribute('aria-expanded', String(open));
+      if (panel) panel.classList.toggle('hidden', !open);
+      if (icon) icon.classList.toggle('rotate-180', open);
+    };
+
+    syncState();
+
+    button.addEventListener('click', () => {
+      open = !open;
+      syncState();
+    });
+  });
+</script>
