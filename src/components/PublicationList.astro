@@ -79,10 +79,7 @@ const { publications } = Astro.props
                 onclick={`toggleCitation(${index})`}
                 >
                     <span
-                    class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-[220ms]
-                    hover:border-zinc-700 dark:hover:border-zinc-300'
+                  class='tag-pill'
                     >
                         Cite
                     </span>
@@ -91,10 +88,7 @@ const { publications } = Astro.props
                 publication.pdf &&
                 <a class="flex items-center gap-2" href={publication.pdf} target="_blank" rel={publication.paperLinkRel}>
                     <span
-                    class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                    text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                    transition-all duration-[220ms]
-                    hover:border-zinc-700 dark:hover:border-zinc-300'
+                  class='tag-pill'
                     >
                         PDF
                     </span>
@@ -105,10 +99,7 @@ const { publications } = Astro.props
                 publication.postLink &&
                 <a class="flex items-center gap-2" href={publication.postLink}>
                 <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-[220ms]
-                hover:border-zinc-700 dark:hover:border-zinc-300'
+                class='tag-pill'
                 >
                     Article
                 </span>
@@ -119,10 +110,7 @@ const { publications } = Astro.props
                 publication.code &&  // This line adds the conditional check for the Demo link
                 <a class="flex items-center gap-2" href={publication.code} target="_blank" rel={publication.paperLinkRel}>
                 <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-[220ms]
-                hover:border-zinc-700 dark:hover:border-zinc-300'
+                class='tag-pill'
                 >
                     Code
                 </span>
@@ -133,10 +121,7 @@ const { publications } = Astro.props
                 publication.paperLink &&  // This line adds the conditional check for the Demo link
                 <a class="flex items-center gap-2" href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
                 <span
-                class='border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                text-sm text-zinc-700 dark:text-zinc-300 no-underline px-2 py-0.5
-                transition-all duration-[220ms]
-                hover:border-zinc-700 dark:hover:border-zinc-300'
+                class='tag-pill'
                 >
                     Paper
                 </span>
