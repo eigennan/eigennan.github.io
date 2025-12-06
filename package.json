@@ -7,18 +7,19 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro check && astro build",
+    "postbuild": "pagefind --site dist --output-path dist/pagefind",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.5",
-    "@astrojs/markdown-remark": "^6.3.8",
-    "@astrojs/mdx": "^4.3.10",
+    "@astrojs/check": "^0.9.6",
+    "@astrojs/markdown-remark": "^6.3.9",
+    "@astrojs/mdx": "^4.3.12",
     "@astrojs/partytown": "^2.1.4",
-    "@astrojs/rss": "^4.0.13",
+    "@astrojs/rss": "^4.0.14",
     "@astrojs/sitemap": "^3.6.0",
     "@astrojs/tailwind": "^6.0.2",
-    "astro": "^5.15.4",
+    "astro": "^5.16.4",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "sharp": "^0.33.5",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.14",
+    "pagefind": "^1.4.0",
     "prettier": "^3.3.3",
     "prettier-plugin-astro": "^0.14.1",
     "vite": "^5.4.8"
