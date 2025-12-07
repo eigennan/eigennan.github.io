@@ -29,11 +29,13 @@ const groupedPosts = groupPostsByYear(posts);
 ---
 
 {groupedPosts.map(({ year, posts }) => (
-  <div class="mb-8">
+  <div class="mb-8 year-group" data-year={year}>
     <h2 class="text-2xl font-bold mb-4">{year}</h2>
     <div>
-      {posts.map((post: BlogPost, i: number) => (
-        <PostItem post={post} />
+      {posts.map((post: BlogPost) => (
+        <div class="post-entry" data-tags={(post.data.tags || []).map((tag: string) => tag.toLowerCase()).join('|||')}>
+          <PostItem post={post} />
+        </div>
       ))}
     </div>
   </div>

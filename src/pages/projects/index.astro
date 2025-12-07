@@ -9,30 +9,23 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
 
 <BaseLayout title="Projects">
   <div class="container mx-auto px-4">
-    <!-- <h1 class="text-3xl font-bold mb-6">All Projects</h1> -->
-    
-    <div class="flex flex-col md:flex-row gap-6">
-      <!-- Tag filtering sidebar -->
-      <div class="md:w-36 shrink-0">
-        <div class="sticky top-6">
-          <h3 class="text-lg font-medium mb-3">Filter by tag:</h3>
-          <div class="flex flex-col gap-2 mb-4">
-            <button id="clear-filter" class="border border-red-300 dark:border-red-700 rounded-2xl
-              bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300 px-3 py-1 
-              transition-all duration-[220ms] items-center gap-1.5
-              hover:border-red-500 dark:hover:border-red-500 text-left hidden">
+    <div class="space-y-6">
+      <div class="border dark:border-zinc-800 rounded-xl p-4 shadow-sm bg-white/80 dark:bg-zinc-900/70">
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <h3 class="text-lg font-medium">Filter by tag</h3>
+            <button id="clear-filter" class="tag-pill items-center gap-1.5 justify-start ml-auto opacity-0 pointer-events-none" aria-hidden="true">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18"></path>
                 <path d="m6 6 12 12"></path>
               </svg>
               Clear filter
             </button>
-            
+          </div>
+          <div class="flex flex-wrap gap-2">
             {allTags.map((tag) => (
               <button
-                class="tag-filter border border-zinc-300 dark:border-zinc-700 rounded-2xl
-                  text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 transition-all duration-[220ms]
-                  hover:border-zinc-700 dark:hover:border-zinc-300 text-left break-words"
+                class="tag-filter tag-pill break-words"
                 data-tag={tag}
               >
                 {tag}
@@ -41,12 +34,8 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
           </div>
         </div>
       </div>
-      
-      <!-- Project content area -->
-      <div class="flex-1">
-        <div id="project-container">
-          <ProjectList projects={projects} />
-        </div>
+      <div id="project-container">
+        <ProjectList projects={projects} />
       </div>
     </div>
   </div>
@@ -58,6 +47,12 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     const tagButtons = document.querySelectorAll('.tag-filter');
     const clearFilterButton = document.getElementById('clear-filter');
     const projectContainer = document.getElementById('project-container');
+
+    // Ensure clear button is visually hidden on load without collapsing layout
+    if (clearFilterButton) {
+      clearFilterButton.classList.add('opacity-0', 'pointer-events-none');
+      clearFilterButton.setAttribute('aria-hidden', 'true');
+    }
     
     // Use the server-side passed projects variable directly
     const allProjects = projects;
@@ -79,7 +74,7 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       
       // Create new project list with filtered projects
       const projectList = document.createElement('div');
-      projectList.className = 'flex flex-col gap-5';
+      projectList.className = 'grid grid-cols-1 md:grid-cols-2 gap-5';
       
       filtered.forEach((project, index) => {
         const projectCard = createProjectCard(project, index);
@@ -124,26 +119,26 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     // Helper function to create a project card
     function createProjectCard(project, index) {
       const card = document.createElement('div');
-      card.className = 'border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500';
+      card.className = 'border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 h-full';
 
       const cardInner = document.createElement('div');
-      cardInner.className = 'flex flex-col md:flex-row gap-6';
+      cardInner.className = 'grid gap-6 h-full md:grid-cols-[160px,1fr] items-start';
 
       if (project.image) {
         const coverBox = document.createElement('div');
-        coverBox.className = 'project-cover mx-auto md:mx-0 mb-4 md:mb-0 w-full md:w-48 shrink-0';
+        coverBox.className = 'project-cover mx-auto md:mx-0 mb-4 md:mb-0 w-full md:w-40 shrink-0';
         const img = document.createElement('img');
         img.src = typeof project.image === 'string' ? project.image : project.image?.src || '';
         img.alt = project.imageAlt || project.name;
         img.loading = 'lazy';
-        img.className = 'rounded w-full h-48 object-cover';
+        img.className = 'rounded w-full h-36 object-cover';
         coverBox.appendChild(img);
         cardInner.appendChild(coverBox);
       }
       
       // Project title
       const contentWrapper = document.createElement('div');
-      contentWrapper.className = 'flex-1 flex flex-col';
+      contentWrapper.className = 'flex-1 flex flex-col min-h-[9rem] h-full';
 
       const title = document.createElement('h3');
       title.className = 'font-semibold mb-2';
@@ -191,12 +186,12 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       
       // Links section
       const linksDiv = document.createElement('div');
-      linksDiv.className = 'flex justify-end gap-3 mt-auto';
+      linksDiv.className = 'flex justify-end gap-3 mt-auto self-end';
       
       // Add article link if exists
       if (project.postLink) {
         const articleLink = document.createElement('a');
-        articleLink.className = 'border border-zinc-300 dark:border-zinc-700 rounded-2xl text-sm text-zinc-700 dark:text-zinc-300 no-underline px-3 py-1 transition-all duration-[220ms] flex items-center gap-1 hover:border-zinc-700 dark:hover:border-zinc-300';
+        articleLink.className = 'tag-pill flex items-center gap-1';
         articleLink.href = project.postLink;
         articleLink.textContent = 'Article';
         linksDiv.appendChild(articleLink);
@@ -205,12 +200,23 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       // Add demo link if exists
       if (project.demoLink) {
         const demoLink = document.createElement('a');
-        demoLink.className = 'border border-zinc-300 dark:border-zinc-700 rounded-2xl text-sm text-zinc-700 dark:text-zinc-300 no-underline px-3 py-1 transition-all duration-[220ms] flex items-center gap-1 hover:border-zinc-700 dark:hover:border-zinc-300';
+        demoLink.className = 'tag-pill flex items-center gap-1';
         demoLink.href = project.demoLink;
         demoLink.target = '_blank';
         demoLink.rel = project.demoLinkRel || 'noopener';
         demoLink.textContent = 'Demo';
         linksDiv.appendChild(demoLink);
+      }
+
+      // Add paper link if exists
+      if (project.paperLink) {
+        const paperLink = document.createElement('a');
+        paperLink.className = 'tag-pill flex items-center gap-1';
+        paperLink.href = project.paperLink;
+        paperLink.target = '_blank';
+        paperLink.rel = 'noopener';
+        paperLink.textContent = 'Paper';
+        linksDiv.appendChild(paperLink);
       }
       
       // Assemble card
@@ -255,14 +261,14 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
         
         // Update active tag styling
         tagButtons.forEach(btn => {
-          btn.classList.remove('bg-zinc-100', 'dark:bg-zinc-800');
+          btn.classList.remove('filter-active');
         });
-        button.classList.add('bg-zinc-100', 'dark:bg-zinc-800');
+        button.classList.add('filter-active');
         
         // Show clear filter button
         if (clearFilterButton) {
-          clearFilterButton.classList.remove('hidden');
-          clearFilterButton.classList.add('flex');
+          clearFilterButton.classList.remove('opacity-0', 'pointer-events-none');
+          clearFilterButton.setAttribute('aria-hidden', 'false');
         }
         
         // Filter projects
@@ -279,12 +285,12 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       clearFilterButton.addEventListener('click', () => {
         // Reset active tag styling
         tagButtons.forEach(btn => {
-          btn.classList.remove('bg-zinc-100', 'dark:bg-zinc-800');
+          btn.classList.remove('filter-active');
         });
         
-        // Hide clear filter button
-        clearFilterButton.classList.add('hidden');
-        clearFilterButton.classList.remove('flex');
+        // Hide clear filter button without affecting layout height
+        clearFilterButton.classList.add('opacity-0', 'pointer-events-none');
+        clearFilterButton.setAttribute('aria-hidden', 'true');
         
         // Show all projects
         renderProjects(allProjects);

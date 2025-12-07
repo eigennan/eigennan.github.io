@@ -58,13 +58,13 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
         </div>
         <PublicationList publications={recentPublications}/>
       </div>
-      <!-- <div class="mt-12">
+      <div class="mt-12">
         <div class="flex justify-between gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">Recent Projects</h2>
           <a href="/projects/" class="inline-block py-2 underline dark:prose-invert">All projects &raquo;</a>
         </div>
         <ProjectList projects={top6Projects}/>
-      </div> -->
+      </div>
 		</main>
     <main class='prose text-lg dark:prose-invert mt-12'>
       <article>
@@ -72,7 +72,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
           <section>
             <button
               type="button"
-          class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left"
+          class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left text-lg font-bold"
               data-dropdown-target="presentations-panel"
               aria-expanded="false"
             >
@@ -105,7 +105,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
           <section>
             <button
               type="button"
-            class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left"
+            class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left text-lg font-bold"
               data-dropdown-target="teaching-panel"
               aria-expanded="false"
             >

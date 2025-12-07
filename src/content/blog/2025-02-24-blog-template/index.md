@@ -5,7 +5,7 @@ slug: 'how-i-built-my-website'
 description: 'A tutorial for building a personal website using Astro and Github pages'
 pubDate: '2025-02-24'
 updatedDate: '2025-02-24'
-tags: ["Astro", "Guide", "Github Pages"]
+tags: ["Astro", "Github Pages"]
 # coverImage: './astro-banner.png'
 ---
 
