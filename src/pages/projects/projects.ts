@@ -25,7 +25,7 @@ export const projects: Project[] = [
     imageAlt: 'Spiral wave simulation snapshot with core radius 50'
   },
   {
-    name: 'Spiral Waves in the ThetaModel',
+    name: 'Spiral Waves in the Theta Model',
     description: 'MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods.',
     demoLink: 'https://github.com/eigenan/Spiral-Waves-in-Theta-Model',
     demoLinkRel: 'nofollow noopener noreferrer',

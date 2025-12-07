@@ -22,7 +22,11 @@ const allTags = [...new Set(posts.flatMap((post) => post.data.tags || []))].sort
         <div class="flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-3">
             <h3 class="text-lg font-medium">Filter by tag</h3>
-            <button id="blog-clear-filter" class="tag-pill items-center gap-1.5 justify-start ml-auto opacity-0 pointer-events-none" aria-hidden="true">
+            <button
+              id="blog-clear-filter"
+              class="tag-pill items-center gap-1.5 justify-start ml-auto bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800 dark:hover:bg-red-900 transition-opacity opacity-0 pointer-events-none"
+              aria-hidden="true"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18"></path>
                 <path d="m6 6 12 12"></path>
