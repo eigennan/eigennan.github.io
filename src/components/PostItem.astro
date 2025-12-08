@@ -1,30 +1,18 @@
 ---
-import { slugify } from '../utils';
 import FormattedDate from './FormattedDate.astro';
 import type { CollectionEntry } from 'astro:content';
 
 type BlogPost = CollectionEntry<'blog'>;
-const { post }: Record<string, any> | { post: BlogPost } = Astro.props
+const { post }: Record<string, any> | { post: BlogPost } = Astro.props;
 ---
-<div class='flex flex-col sm:flex-row gap-2 sm:items-center  border-b py-2 mb-1 capitalize dark:border-b-zinc-700'>        
-  <div class='text-zinc-700 text-sm w-24 dark:text-zinc-300 shrink-0'>
-    <FormattedDate date={post.data.pubDate} />
-  </div>
+<div class='flex items-start sm:items-center gap-2 border-b py-2 mb-1 capitalize dark:border-b-zinc-700'>
   <h3 class='font-medium grow'>
-  <a class="post-title-link inline-flex items-center gap-1" href={`/${post.slug}/`}>
+    <a class="post-title-link inline-flex items-center gap-1" href={`/${post.slug}/`}>
       {post.data.title}
     </a>
   </h3>
-  <div class='flex gap-2 shrink-0'>
-    {
-      (post.data.tags || [] )?.map((tag: string) => (
-        <a
-          class='tag-pill'
-          href={`/tags/${slugify(tag)}`}>
-          {tag}
-        </a>
-      ))
-    }
+  <div class='text-zinc-700 text-sm text-right w-32 dark:text-zinc-300 shrink-0 ml-auto'>
+    <FormattedDate date={post.data.pubDate} />
   </div>
 </div>
 
