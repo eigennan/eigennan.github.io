@@ -40,11 +40,11 @@ const posts = (await getCollection('blog'))
 		</div>
 		<main>
       <div class='mt-6 mb-12'>
-        <div class="flex justify-between gap-2 border-b mb-1 dark:border-b-zinc-700">
+        <div class="flex justify-between items-end gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">Recent Posts</h2>
           <a href="/blog/" class="inline-block py-2 underline dark:prose-invert">All posts &raquo;</a>
         </div>
-        <div>
+        <div class="space-y-2 md:space-y-2.5">
           {
             posts.map((post: BlogPost) => (
               <PostItem post={post} />
@@ -75,7 +75,7 @@ const posts = (await getCollection('blog'))
           <section>
             <button
               type="button"
-          class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left text-lg font-bold"
+          class="tag-pill dropdown-toggle glass-panel border dark:border-zinc-700 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500"
               data-dropdown-target="presentations-panel"
               aria-expanded="false"
             >
@@ -108,7 +108,7 @@ const posts = (await getCollection('blog'))
           <section>
             <button
               type="button"
-            class="tag-pill dropdown-toggle flex items-center justify-between gap-3 w-full text-left text-lg font-bold"
+            class="tag-pill dropdown-toggle glass-panel border dark:border-zinc-700 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500"
               data-dropdown-target="teaching-panel"
               aria-expanded="false"
             >

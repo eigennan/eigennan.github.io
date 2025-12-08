@@ -10,7 +10,7 @@ const { projects } = Astro.props
 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
   {
     projects.map((project: Project, index: number) => 
-      <div class="border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 h-full">
+      <div class="glass-panel border dark:border-zinc-700 rounded-2xl shadow-sm p-5 relative transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 h-full">
         <div class="grid gap-6 h-full md:grid-cols-[160px,1fr] items-start">
           {project.image && (
             <div class="project-cover mx-auto md:mx-0 mb-4 md:mb-0 w-full md:w-40 shrink-0">

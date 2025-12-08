@@ -10,13 +10,13 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
 <BaseLayout title="Projects">
   <div class="container mx-auto px-4">
     <div class="space-y-6">
-      <div class="border dark:border-zinc-800 rounded-xl p-4 shadow-sm bg-white/80 dark:bg-zinc-900/70">
+      <div class="glass-panel border dark:border-zinc-800 rounded-2xl p-4 shadow-sm transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500">
         <div class="flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-3">
             <h3 class="text-lg font-medium">Filter by tag</h3>
             <button
               id="clear-filter"
-              class="tag-pill clear-pill items-center gap-1.5 justify-start ml-auto hover:-translate-y-0.5 opacity-0 pointer-events-none"
+              class="tag-pill clear-pill items-center gap-1.5 justify-start ml-auto hover:scale-[1.015] opacity-0 pointer-events-none"
               aria-hidden="true"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -123,7 +123,7 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     // Helper function to create a project card
     function createProjectCard(project, index) {
       const card = document.createElement('div');
-      card.className = 'border dark:border-zinc-700 rounded-xl shadow-sm p-5 relative bg-white dark:bg-zinc-900/70 transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 h-full';
+      card.className = 'glass-panel border dark:border-zinc-700 rounded-2xl shadow-sm p-5 relative transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 h-full';
 
       const cardInner = document.createElement('div');
       cardInner.className = 'grid gap-6 h-full md:grid-cols-[160px,1fr] items-start';
