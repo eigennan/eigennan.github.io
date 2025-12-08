@@ -16,7 +16,10 @@ type BlogPost = CollectionEntry<'blog'>;
 
 const top6Projects = projects.slice(0, 2);
 const recentPublications = publications.slice(0, 2);
-const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()).slice(0, 5);
+const posts = (await getCollection('blog'))
+  .filter((post) => post.data.draft !== true)
+  .sort((a: BlogPost, b: BlogPost) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 5);
 ---
 
 <BaseLayout title={SITE_TITLE + ' - ' + SITE_TAGLINE} description={SITE_DESCRIPTION}>
@@ -54,7 +57,7 @@ const posts = (await getCollection('blog')).sort((a: BlogPost, b: BlogPost) => b
       <div>
         <div class="flex justify-between gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">Recent Publications</h2>
-          <a href="/publications/" class="inline-block py-2 underline dark:prose-invert">All Publications &raquo;</a>
+          <a href="/publications/" class="inline-block py-2 underline dark:prose-invert">All publications &raquo;</a>
         </div>
         <PublicationList publications={recentPublications}/>
       </div>

@@ -7,7 +7,6 @@ pubDate: '2025-12-01'
 updatedDate: '2025-12-01'
 tags: ["Dynamical Systems", "Continuation", "Numerical Methods"]
 # coverImage: './astro-banner.png'
-hide: true
 ---
 
 Here is a toy problem with a typical saddle-node bifurcation

@@ -1,5 +1,3 @@
-import { getRepositoryDetails } from "../../utils";
-
 export interface Publications {
   name: string;
   paperLink: string;

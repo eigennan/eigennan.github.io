@@ -7,7 +7,7 @@ import PostsByYear from '@src/components/PostsByYear.astro';
 
 type BlogPost = CollectionEntry<'blog'>;
 export const getStaticPaths = async () => {
-	const allPosts: BlogPost[] = await getCollection('blog');
+	const allPosts: BlogPost[] = (await getCollection('blog')).filter((post) => post.data.draft !== true);
 	return [
 		...new Set(
 			allPosts
@@ -19,7 +19,9 @@ export const getStaticPaths = async () => {
 };
 
 const { tag } = Astro.params;
-const allPosts: BlogPost[] = (await getCollection('blog')).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const allPosts: BlogPost[] = (await getCollection('blog'))
+	.filter((post) => post.data.draft !== true)
+	.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 const taggedPosts = allPosts.filter((post) => post.data.tags?.map((tag) => slugify(tag)).includes(tag || ''));
 const title = `All Posts Tagged with ${unslugify(tag || '')}`;
 const description = `All Posts Tagged with ${unslugify(tag || '')}`;
@@ -34,7 +36,7 @@ const description = `All Posts Tagged with ${unslugify(tag || '')}`;
 			<h1 class="text-3xl font-bold mb-0">{title}</h1>
 			<a
 				href="/blog/"
-				class="tag-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-100 dark:border-red-800 dark:hover:bg-red-900"
+				class="tag-pill clear-pill inline-flex items-center gap-1.5 hover:-translate-y-0.5 transition-all"
 				aria-label="Clear filters and show all posts"
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
