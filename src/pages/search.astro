@@ -9,7 +9,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="text-zinc-700 dark:text-zinc-300 text-base">Find content across posts and pages.</p>
     </div>
 
-    <div id="pagefind-search" class="border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 shadow-sm bg-white dark:bg-zinc-900/60"></div>
+    <div id="pagefind-search" class="glass-panel p-4"></div>
   </div>
 
   <link rel="stylesheet" href="/pagefind/pagefind-ui.css">
@@ -69,33 +69,36 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       border-color: rgba(161,161,170,0.9);
     }
     :global(#pagefind-search .pagefind-ui__search-clear) {
-      background: #f8fafc;
+      background: transparent;
       color: #0f172a;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      border-radius: 999px;
+      border: none;
+      border-radius: 0;
       padding: 0.3rem 0.9rem;
       font-weight: 600;
-      transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+      transition: color 180ms ease;
+      box-shadow: none;
+      cursor: pointer;
     }
     :global(#pagefind-search .pagefind-ui__search-clear:hover) {
-      background: #e2e8f0;
-      border-color: rgba(15, 23, 42, 0.24);
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+      background: transparent;
+      color: #000;
+      border: none;
+      box-shadow: none;
     }
     :global(.dark #pagefind-search .pagefind-ui__search-clear) {
-      background: #0b0b0f;
+      background: transparent;
       color: #f8fafc;
-      border: 1px solid rgba(248, 250, 252, 0.35);
-      border-radius: 999px;
+      border: none;
+      border-radius: 0;
       padding: 0.3rem 0.9rem;
       font-weight: 600;
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+      box-shadow: none;
     }
     :global(.dark #pagefind-search .pagefind-ui__search-clear:hover) {
-      background: #11111a;
-      border-color: rgba(248, 250, 252, 0.55);
-      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5);
+      background: transparent;
+      color: #fff;
+      border: none;
+      box-shadow: none;
     }
     :global(.dark #pagefind-search .pagefind-ui__result-highlight) {
       background: rgba(250,204,21,0.18);

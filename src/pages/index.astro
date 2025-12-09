@@ -75,7 +75,7 @@ const posts = (await getCollection('blog'))
           <section>
             <button
               type="button"
-          class="tag-pill dropdown-toggle glass-panel border dark:border-zinc-700 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500"
+          class="dropdown-toggle glass-panel p-4 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] dark:hover:border-zinc-500"
               data-dropdown-target="presentations-panel"
               aria-expanded="false"
             >
@@ -108,7 +108,7 @@ const posts = (await getCollection('blog'))
           <section>
             <button
               type="button"
-            class="tag-pill dropdown-toggle glass-panel border dark:border-zinc-700 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500"
+            class="dropdown-toggle glass-panel p-4 flex items-center justify-between gap-3 w-full text-left text-lg font-bold transition-all duration-[220ms] hover:scale-[1.015] dark:hover:border-zinc-500"
               data-dropdown-target="teaching-panel"
               aria-expanded="false"
             >
@@ -116,13 +116,17 @@ const posts = (await getCollection('blog'))
               <span data-icon class="transition-transform duration-200">▼</span>
             </button>
           <div id="teaching-panel" class="mt-4 hidden">
-              <h4>Teaching Assistant at University of Minnesota</h4>
+              
               <ul class="text-sm">
-                <li>MATH 3592H: Honors Mathematics I - F25</li>
-                <li>MATH 2374: Multivariable Calculus - S25, F24</li>
-                <li>MATH 2373: Linear Algebra and Differential Equations - S24, F23</li>
-                <li>MATH 1031: College Algebra & Probability - S23</li>
-                <li>MATH 1271: Calculus I - F22</li>
+                <li><b>Teaching Assistant at University of Minnesota</b>
+                  <ul>
+                    <li>MATH 3592H: Honors Mathematics I - F25</li>
+                    <li>MATH 2374: Multivariable Calculus - S25, F24</li>
+                    <li>MATH 2373: Linear Algebra and Differential Equations - S24, F23</li>
+                    <li>MATH 1031: College Algebra & Probability - S23</li>
+                    <li>MATH 1271: Calculus I - F22</li>
+                  </ul>
+                </li>
               </ul>
             </div>
           </section>

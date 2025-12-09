@@ -174,18 +174,28 @@ const menu = [
 		.glass-nav {
 			gap: 0.25rem;
 			padding: 0.35rem 0.45rem;
-			border-radius: 999px;
+			border-radius: 0.75rem;
 			background: linear-gradient(120deg, rgba(255, 255, 255, 0.32), rgba(241, 245, 249, 0.15));
-			border: 1px solid rgba(255, 255, 255, 0.35);
-			box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
+			/* border: 1px solid rgba(255, 255, 255, 0.35); */
+			box-shadow: 0 2px 5px rgba(15, 23, 42, 0.05);
 			backdrop-filter: blur(25px) saturate(220%);
 			-webkit-backdrop-filter: blur(25px) saturate(220%);
 			font-size: 0.95rem;
+			transition: all 0.2s ease;
+		}
+		.glass-nav:hover {
+			background: rgba(255, 255, 255, 0.5);
+			box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+			transform: scale(1.015);
 		}
 		.dark .glass-nav {
 			background: linear-gradient(120deg, rgba(30, 30, 34, 0.42), rgba(51, 51, 59, 0.2));
 			border-color: rgba(113, 113, 122, 0.4);
-			box-shadow: 0 25px 55px rgba(0, 0, 0, 0.45);
+			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+		}
+		.dark .glass-nav:hover {
+			background: rgba(15, 23, 42, 0.5);
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 		}
 
 		.glass-link {
@@ -194,17 +204,17 @@ const menu = [
 			align-items: center;
 			gap: 0.4rem;
 			padding: 0.6rem 1.15rem;
-			border-radius: 999px;
+			border-radius: 0.75rem;
 			font-weight: 600;
 			font-size: 0.95rem;
-			border: 1px solid rgba(255, 255, 255, 0.25);
+			/* border: 1px solid rgba(255, 255, 255, 0.25); */
 			background: rgba(255, 255, 255, 0.08);
 			color: rgba(15, 23, 42, 0.7);
 			transition: color 220ms ease, background 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
 		}
 		.dark .glass-link {
 			color: rgba(244, 244, 245, 0.78);
-			border-color: rgba(113, 113, 122, 0.35);
+			/* border-color: rgba(113, 113, 122, 0.35); */
 			background: rgba(39, 39, 42, 0.18);
 		}
 		.glass-link::after {
@@ -220,9 +230,9 @@ const menu = [
 		.glass-link:hover {
 			color: #0f172a;
 			background: rgba(255, 255, 255, 0.28);
-			border-color: rgba(248, 250, 252, 0.65);
-			box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
-			transform: translateY(-1px);
+			/* border-color: rgba(248, 250, 252, 0.65); */
+			box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+			transform: scale(1.015);
 		}
 		.glass-link:hover::after {
 			opacity: 1;
@@ -230,13 +240,13 @@ const menu = [
 		.dark .glass-link:hover {
 			color: #f4f4f5;
 			background: rgba(82, 82, 91, 0.32);
-			border-color: rgba(113, 113, 122, 0.55);
-			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+			/* border-color: rgba(113, 113, 122, 0.55); */
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 		}
 		.glass-link-active {
 			color: #0b1220;
 			background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(236, 244, 255, 0.45));
-			border-color: rgba(255, 255, 255, 0.95);
+			/* border-color: rgba(255, 255, 255, 0.95); */
 			box-shadow:
 				0 20px 36px rgba(15, 23, 42, 0.25),
 				inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -248,7 +258,7 @@ const menu = [
 		.dark .glass-link-active {
 			color: #fafafa;
 			background: linear-gradient(135deg, rgba(59, 59, 66, 0.72), rgba(96, 96, 110, 0.42));
-			border-color: rgba(212, 212, 216, 0.85);
+			/* border-color: rgba(212, 212, 216, 0.85); */
 			box-shadow:
 				0 22px 40px rgba(0, 0, 0, 0.65),
 				inset 0 1px 0 rgba(255, 255, 255, 0.28),

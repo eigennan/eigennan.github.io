@@ -7,7 +7,7 @@ const { post }: Record<string, any> | { post: BlogPost } = Astro.props;
 ---
 <a
   href={`/${post.slug}/`}
-  class="post-card glass-panel flex items-center gap-2 p-2.5 md:p-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-700 shadow-sm transition-all duration-[220ms] hover:scale-[1.015] hover:shadow-xl hover:border-zinc-400 dark:hover:border-zinc-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-500"
+  class="post-card glass-panel flex items-center gap-2 p-2.5 md:p-3 hover:scale-[1.015] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-500"
   aria-label={`Read ${post.data.title}`}
 >
   <h3 class="font-semibold text-base grow leading-tight">

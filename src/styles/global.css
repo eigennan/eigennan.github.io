@@ -78,18 +78,28 @@
 }
 
 .glass-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.52));
-  border: 1px solid rgba(51, 65, 85, 0.25);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16), 0 2px 10px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  border-radius: 1rem; /* unified corners for all glassy boxes */
+  background: rgba(255, 255, 255, 0.3); /* Much more transparent */
+  /* No border */
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.05); /* Very subtle shadow */
+  backdrop-filter: blur(4px); /* Less blur */
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.glass-panel:hover {
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 .dark .glass-panel {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.55));
-  border: 1px solid rgba(226, 232, 240, 0.14);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.35);
+  background: rgba(15, 23, 42, 0.3);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.dark .glass-panel:hover {
+  background: rgba(15, 23, 42, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* Keep GitHub gist a11y text visually hidden */
