@@ -1,117 +1,16 @@
 ---
-import { Image } from 'astro:assets';
+import ProjectCard from './ProjectCard.astro';
 import type { Project } from '../pages/projects/projects'
-// import GithubWhite from '@src/assets/img/github-mark-white.svg';
-// import GithubBlack from '@src/assets/img/github-mark.svg';
 
 const { projects } = Astro.props
 
 ---
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<>
   {
-    projects.map((project: Project, index: number) => 
-      <div class="glass-panel p-5 relative transition-all duration-[220ms] hover:scale-[1.015] dark:hover:border-zinc-500 h-full">
-        <div class="grid gap-6 h-full md:grid-cols-[160px,1fr] items-start">
-          {project.image && (
-            <div class="project-cover mx-auto md:mx-0 mb-4 md:mb-0 w-full md:w-40 shrink-0">
-              {typeof project.image === 'string' ? (
-                <img src={project.image} alt={project.imageAlt || project.name} loading="lazy" class="rounded w-full h-36 object-cover" />
-              ) : (
-                <Image src={project.image} alt={project.imageAlt || project.name} width={180} height={216} class="rounded w-full object-cover h-36" loading="lazy" />
-              )}
-            </div>
-          )}
-          <div class="flex-1 flex flex-col min-h-[9rem] h-full">
-            <h3 class="font-semibold mb-2">
-              <a href={project.demoLink} target="_blank" rel={project.demoLinkRel}>{project.name}</a>
-            </h3>
-            <div class="text-zinc-600 dark:text-zinc-300 mb-4 description-container text-sm flex-grow">
-              <p class="description-text line-clamp-2 min-h-[60px] max-h-[60px]" id={`project-description-${index}`}>{project.description}</p>
-              <p class="description-text-full hidden" id={`project-description-full-${index}`}>{project.description}</p>
-              {project.description && project.description.length > 100 && (
-                <button 
-                  id={`project-read-more-${index}`} 
-                  class="text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 project-read-more-btn"
-                  onclick={`toggleProjectDescription(${index})`}
-                >
-                  Read more
-                </button>
-              )}
-            </div>
-            <div class="flex justify-end gap-3 mt-auto self-end">
-          {
-            project.postLink &&
-            <a 
-              class="tag-pill flex items-center gap-1"
-              href={project.postLink}
-            >
-              Article
-            </a>
-          }
-          {
-            project.paperLink &&
-            <a 
-              class="tag-pill flex items-center gap-1"
-              href={project.paperLink}
-              target="_blank" 
-              rel="noopener"
-            >
-              Paper
-            </a>
-          }
-          {
-            project.demoLink &&
-            <a 
-              class="tag-pill flex items-center gap-1"
-              href={project.demoLink} 
-              target="_blank" 
-              rel={project.demoLinkRel}
-            >
-              Demo
-            </a>
-          }
-            </div>
-          </div>
-        </div>
+    projects.map((project: Project) => (
+      <div class="h-full">
+        <ProjectCard project={project} />
       </div>
-    )
+    ))
   }
-</div>
-
-<!-- Read More and Show Less Button Functionality -->
-<script>
-  function toggleProjectDescription(index: number) {
-    const descriptionEl = document.getElementById(`project-description-${index}`);
-    const descriptionFullEl = document.getElementById(`project-description-full-${index}`);
-    const buttonEl = document.getElementById(`project-read-more-${index}`);
-    
-    if (!descriptionEl || !descriptionFullEl || !buttonEl) return;
-    
-    if (descriptionEl.classList.contains('line-clamp-2')) {
-      // Expand
-      descriptionEl.classList.remove('line-clamp-2');
-      descriptionEl.classList.add('hidden');
-      descriptionFullEl.classList.remove('hidden');
-      buttonEl.textContent = 'Show less';
-    } else {
-      // Collapse
-      descriptionEl.classList.add('line-clamp-2');
-      descriptionEl.classList.remove('hidden');
-      descriptionFullEl.classList.add('hidden');
-      buttonEl.textContent = 'Read more';
-    }
-  }
-
-  // Initialize all buttons
-  document.addEventListener('DOMContentLoaded', () => {
-    const buttons = document.querySelectorAll('.project-read-more-btn');
-    buttons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const parts = target.id.split('-');
-        const index = parseInt(parts[parts.length - 1], 10);
-        toggleProjectDescription(index);
-      });
-    });
-  });
-</script>
+</>

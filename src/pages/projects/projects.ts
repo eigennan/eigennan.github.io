@@ -7,6 +7,7 @@ export interface Project {
   demoLinkRel?: string;
   paperLink?: string;
   image?: string;
+  coverImage?: string;
   imageAlt?: string;
   [key: string]: any;
 }
@@ -20,6 +21,7 @@ export const projects: Project[] = [
     tags: ["MATLAB", "Numerical Simulation"],
     paperLink: 'https://arxiv.org/abs/2312.07809',
     image: '/spiral50.png',
+    coverImage: '/spiral50.png',
     imageAlt: 'Spiral wave simulation snapshot with core radius 50'
   },
   {
@@ -29,6 +31,7 @@ export const projects: Project[] = [
     demoLinkRel: 'nofollow noopener noreferrer',
     tags: ["MATLAB", "Numerical Continuation"],
     image: '/spiral_eq.png',
+    coverImage: '/spiral_eq.png',
     imageAlt: 'Relative equilibrium spiral solution for the theta model'
   },
   // {

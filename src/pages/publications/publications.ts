@@ -9,10 +9,12 @@ export interface Publications {
   postLink?: string;
   paperLinkRel?: string;
   image: string;
+  coverImage?: string;
   pdf: string;
   code?: string;
   bibtex?: string;
   journal?: string;
+  tags?: string[];
   [key: string]: any;
   year?: number;
 }
@@ -51,6 +53,7 @@ export const publications: Publications[] = [
     journal: 'Preprint',
     year: 2025,
     image: '/instability.png',
+    coverImage: '/instability.png',
     pdf: '/Instability of anchored spirals in geometric flows.pdf',
     bibtex: `@article{cortez2025instabilityanchoredspiralsgeometric,
       title={Instability of anchored spirals in geometric flows}, 
@@ -61,6 +64,7 @@ export const publications: Publications[] = [
       primaryClass={nlin.PS},
       url={https://arxiv.org/abs/2504.07270}, 
       }`,
+    tags: ["Preprint", "Geometric Flows", "Spiral Waves"],
   },
   {
     name: 'Anchored spirals in the driven curvature flow approximation',
@@ -79,6 +83,7 @@ export const publications: Publications[] = [
     journal: 'London Mathematical Society Lecture Note Series',
     year: 2024,
     image: '/spiral.png',
+    coverImage: '/spiral.png',
     pdf: '/Anchored spirals in the driven curvature flow approximation.pdf',
     bibtex: `@article{li2024,
     title={Anchored spirals in the driven curvature flow approximation}, 
@@ -89,6 +94,7 @@ export const publications: Publications[] = [
     primaryClass={nlin.PS},
     url={https://arxiv.org/abs/2312.07809}, 
     }`,
+    tags: ["Journal Article", "Geometric Flows", "Spiral Waves"],
   },
   {
     name: 'Counting compatible indexing systems for $C_{p^n}$',
@@ -113,6 +119,7 @@ export const publications: Publications[] = [
       ],
     year: 2022,
     image: '/ccis.png',
+    coverImage: '/ccis.png',
     bibtex: `@article{hill2022,
       title={Counting compatible indexing systems for
       $C_{p^n}$},
@@ -120,5 +127,6 @@ export const publications: Publications[] = [
       journal={Orbita Mathematicae},
       year={2022},
     }`,
+    tags: ["Journal Article", "Algebraic Topology"],
   },
 ]

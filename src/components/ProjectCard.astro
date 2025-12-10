@@ -1,0 +1,70 @@
+---
+import { Image } from 'astro:assets';
+import type { Project } from '../pages/projects/projects';
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+---
+
+<div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300">
+  <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
+    {project.coverImage && (
+      <Image
+        src={project.coverImage}
+        alt={project.name}
+        class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+        width={720}
+        height={360}
+      />
+    )}
+    {!project.coverImage && (
+      <div class="flex h-full items-center justify-center text-zinc-400 dark:text-zinc-600">
+        <span class="text-sm">No Image</span>
+      </div>
+    )}
+  </div>
+  <div class="flex flex-1 flex-col p-5">
+    <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+      <a href={project.demoLink} target="_blank" rel={project.demoLinkRel}>{project.name}</a>
+    </h3>
+    <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3">
+      {project.description}
+    </p>
+    <div class="flex justify-end gap-3 mt-auto self-end">
+        {
+        project.postLink &&
+        <a
+            class="tag-pill flex items-center gap-1"
+            href={project.postLink}
+        >
+            Article
+        </a>
+        }
+        {
+        project.paperLink &&
+        <a
+            class="tag-pill flex items-center gap-1"
+            href={project.paperLink}
+            target="_blank"
+            rel="noopener"
+        >
+            Paper
+        </a>
+        }
+        {
+        project.demoLink &&
+        <a
+            class="tag-pill flex items-center gap-1"
+            href={project.demoLink}
+            target="_blank"
+            rel={project.demoLinkRel}
+        >
+            Demo
+        </a>
+        }
+    </div>
+  </div>
+</div>

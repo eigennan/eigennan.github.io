@@ -10,13 +10,13 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
 <BaseLayout title="Projects">
   <div class="container mx-auto px-4">
     <div class="space-y-6">
-      <div class="glass-panel p-4 transition-all duration-[220ms] hover:scale-[1.015] dark:hover:border-zinc-500">
+      <div class="glass-panel p-4">
         <div class="flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-3">
             <h3 class="text-lg font-medium">Filter by tag</h3>
             <button
               id="clear-filter"
-              class="tag-pill clear-pill items-center gap-1.5 justify-start ml-auto hover:scale-[1.015] opacity-0 pointer-events-none"
+              class="tag-pill clear-pill items-center gap-1.5 justify-start ml-auto opacity-0 pointer-events-none"
               aria-hidden="true"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -38,7 +38,7 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
           </div>
         </div>
       </div>
-      <div id="project-container">
+      <div id="project-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ProjectList projects={projects} />
       </div>
     </div>
@@ -51,6 +51,7 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     const tagButtons = document.querySelectorAll('.tag-filter');
     const clearFilterButton = document.getElementById('clear-filter');
     const projectContainer = document.getElementById('project-container');
+    let activeTags = [];
 
     // Ensure clear button is visually hidden on load without collapsing layout
     if (clearFilterButton) {
@@ -65,173 +66,101 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
     function renderProjects(filtered) {
       if (!projectContainer) return;
       
-      // Clear current projects
       projectContainer.innerHTML = '';
       
       if (filtered.length === 0) {
         const noResults = document.createElement('div');
-        noResults.className = 'text-center py-8 text-zinc-500';
+        noResults.className = 'text-center py-8 text-zinc-500 col-span-full';
         noResults.textContent = 'No projects match this filter';
         projectContainer.appendChild(noResults);
         return;
       }
       
-      // Create new project list with filtered projects
-      const projectList = document.createElement('div');
-      projectList.className = 'grid grid-cols-1 md:grid-cols-2 gap-5';
-      
       filtered.forEach((project, index) => {
         const projectCard = createProjectCard(project, index);
-        projectList.appendChild(projectCard);
+        projectContainer.appendChild(projectCard);
       });
-      
-      projectContainer.appendChild(projectList);
-
-      // Re-render KaTeX expressions in the dynamically created content
-      if (typeof renderMathInElement !== 'undefined') {
-        // For KaTeX auto-render extension
-        document.querySelectorAll('.description-text, .description-text-full').forEach(el => {
-          renderMathInElement(el, {
-            delimiters: [
-              {left: '$$', right: '$$', display: true},
-              {left: '$', right: '$', display: false}
-            ],
-            throwOnError: false
-          });
-        });
-      } else if (window.katex) {
-        // Direct KaTeX API
-        document.querySelectorAll('.description-text, .description-text-full').forEach(el => {
-          const mathElements = el.querySelectorAll('.math, .katex');
-          mathElements.forEach(math => {
-            const text = math.textContent || math.getAttribute('data-math');
-            if (text) {
-              try {
-                katex.render(text, math);
-              } catch (e) {
-                console.error("KaTeX rendering error:", e);
-              }
-            }
-          });
-        });
-      } else if (window.MathJax) {
-        // For MathJax as fallback
-        MathJax.typeset && MathJax.typeset();
-      }
     }
     
     // Helper function to create a project card
     function createProjectCard(project, index) {
-      const card = document.createElement('div');
-      card.className = 'glass-panel rounded-2xl p-5 relative transition-all duration-[220ms] hover:scale-[1.015] dark:hover:border-zinc-500 h-full';
+        const cardContainer = document.createElement('div');
+        cardContainer.className = 'h-full';
 
-      const cardInner = document.createElement('div');
-      cardInner.className = 'grid gap-6 h-full md:grid-cols-[160px,1fr] items-start';
+        const card = document.createElement('div');
+        card.className = 'group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300';
 
-      if (project.image) {
-        const coverBox = document.createElement('div');
-        coverBox.className = 'project-cover mx-auto md:mx-0 mb-4 md:mb-0 w-full md:w-40 shrink-0';
-        const img = document.createElement('img');
-        img.src = typeof project.image === 'string' ? project.image : project.image?.src || '';
-        img.alt = project.imageAlt || project.name;
-        img.loading = 'lazy';
-        img.className = 'rounded w-full h-36 object-cover';
-        coverBox.appendChild(img);
-        cardInner.appendChild(coverBox);
-      }
-      
-      // Project title
-      const contentWrapper = document.createElement('div');
-      contentWrapper.className = 'flex-1 flex flex-col min-h-[9rem] h-full';
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative';
+        if (project.coverImage) {
+            const img = document.createElement('img');
+            img.src = project.coverImage;
+            img.alt = project.name;
+            img.className = 'h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105';
+            img.width = 720;
+            img.height = 360;
+            imageContainer.appendChild(img);
+        } else {
+            const noImage = document.createElement('div');
+            noImage.className = 'flex h-full items-center justify-center text-zinc-400 dark:text-zinc-600';
+            noImage.innerHTML = `<span class="text-sm">No Image</span>`;
+            imageContainer.appendChild(noImage);
+        }
 
-      const title = document.createElement('h3');
-      title.className = 'font-semibold mb-2';
-      const titleLink = document.createElement('a');
-      titleLink.className = 'hover:underline';
-      titleLink.href = project.demoLink || '#';
-      if (project.demoLink) {
+        const content = document.createElement('div');
+        content.className = 'flex flex-1 flex-col p-5';
+
+        const title = document.createElement('h3');
+        title.className = 'mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors';
+        const titleLink = document.createElement('a');
+        titleLink.href = project.demoLink;
         titleLink.target = '_blank';
-        titleLink.rel = project.demoLinkRel || 'noopener';
-      }
-      titleLink.textContent = project.name;
-      title.appendChild(titleLink);
-      
-      // Project description container
-      const descContainer = document.createElement('div');
-      descContainer.className = 'text-zinc-600 dark:text-zinc-300 mb-4 description-container text-sm flex-grow';
-      
-      // Short description with line clamp
-      const descShort = document.createElement('p');
-      descShort.className = 'description-text line-clamp-2 min-h-[60px] max-h-[60px]';
-      descShort.id = `project-description-${index}`;
-      descShort.textContent = project.description;
-      
-      // Full description (hidden initially)
-      const descFull = document.createElement('p');
-      descFull.className = 'description-text-full hidden';
-      descFull.id = `project-description-full-${index}`;
-      descFull.textContent = project.description;
-      
-      // Add descriptions to container
-      descContainer.appendChild(descShort);
-      descContainer.appendChild(descFull);
-      
-      // Add read more button if description is long enough
-      if (project.description && project.description.length > 100) {
-        const readMoreBtn = document.createElement('button');
-        readMoreBtn.id = `project-read-more-${index}`;
-        readMoreBtn.className = 'text-sm font-bold text-zinc-600 dark:text-zinc-300 hover:underline mt-1 project-read-more-btn';
-        readMoreBtn.textContent = 'Read more';
-        readMoreBtn.onclick = function() {
-          toggleProjectDescription(index);
-        };
-        descContainer.appendChild(readMoreBtn);
-      }
-      
-      // Links section
-      const linksDiv = document.createElement('div');
-      linksDiv.className = 'flex justify-end gap-3 mt-auto self-end';
-      
-      // Add article link if exists
-      if (project.postLink) {
-        const articleLink = document.createElement('a');
-        articleLink.className = 'tag-pill flex items-center gap-1';
-        articleLink.href = project.postLink;
-        articleLink.textContent = 'Article';
-        linksDiv.appendChild(articleLink);
-      }
-      
-      // Add demo link if exists
-      if (project.demoLink) {
-        const demoLink = document.createElement('a');
-        demoLink.className = 'tag-pill flex items-center gap-1';
-        demoLink.href = project.demoLink;
-        demoLink.target = '_blank';
-        demoLink.rel = project.demoLinkRel || 'noopener';
-        demoLink.textContent = 'Demo';
-        linksDiv.appendChild(demoLink);
-      }
+        titleLink.rel = project.demoLinkRel;
+        titleLink.textContent = project.name;
+        title.appendChild(titleLink);
 
-      // Add paper link if exists
-      if (project.paperLink) {
-        const paperLink = document.createElement('a');
-        paperLink.className = 'tag-pill flex items-center gap-1';
-        paperLink.href = project.paperLink;
-        paperLink.target = '_blank';
-        paperLink.rel = 'noopener';
-        paperLink.textContent = 'Paper';
-        linksDiv.appendChild(paperLink);
-      }
-      
-      // Assemble card
-      contentWrapper.appendChild(title);
-      contentWrapper.appendChild(descContainer);
-      contentWrapper.appendChild(linksDiv);
+        const description = document.createElement('p');
+        description.className = 'mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3';
+        description.textContent = project.description;
 
-      cardInner.appendChild(contentWrapper);
-      card.appendChild(cardInner);
-      
-      return card;
+        const footer = document.createElement('div');
+        footer.className = 'flex justify-end gap-3 mt-auto self-end';
+
+        if (project.postLink) {
+            const postLink = document.createElement('a');
+            postLink.className = 'tag-pill flex items-center gap-1';
+            postLink.href = project.postLink;
+            postLink.textContent = 'Article';
+            footer.appendChild(postLink);
+        }
+
+        if (project.paperLink) {
+            const paperLink = document.createElement('a');
+            paperLink.className = 'tag-pill flex items-center gap-1';
+            paperLink.href = project.paperLink;
+            paperLink.target = '_blank';
+            paperLink.rel = 'noopener';
+            paperLink.textContent = 'Paper';
+            footer.appendChild(paperLink);
+        }
+
+        if (project.demoLink) {
+            const demoLink = document.createElement('a');
+            demoLink.className = 'tag-pill flex items-center gap-1';
+            demoLink.href = project.demoLink;
+            demoLink.target = '_blank';
+            demoLink.rel = project.demoLinkRel;
+            demoLink.textContent = 'Demo';
+            footer.appendChild(demoLink);
+        }
+
+        content.appendChild(title);
+        content.appendChild(description);
+        content.appendChild(footer);
+        card.appendChild(imageContainer);
+        card.appendChild(content);
+        cardContainer.appendChild(card);
+        return cardContainer;
     }
     
     // Copy the toggleDescription function from ProjectList.astro
@@ -257,39 +186,56 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
       }
     }
     
+    function filterAndRenderProjects() {
+      let filteredProjects;
+      if (activeTags.length === 0) {
+        filteredProjects = allProjects;
+      } else {
+        filteredProjects = allProjects.filter(project => 
+          project.tags && activeTags.every(tag => project.tags.includes(tag))
+        );
+      }
+      renderProjects(filteredProjects);
+    }
+    
     // Add click handlers to tag buttons
     tagButtons.forEach(button => {
       button.addEventListener('click', () => {
         const selectedTag = button.getAttribute('data-tag');
         if (!selectedTag) return;
         
-        // Update active tag styling
-        tagButtons.forEach(btn => {
-          btn.classList.remove('filter-active');
-        });
-        button.classList.add('filter-active');
-        
-        // Show clear filter button
-        if (clearFilterButton) {
-          clearFilterButton.classList.remove('opacity-0', 'pointer-events-none');
-          clearFilterButton.setAttribute('aria-hidden', 'false');
+        button.classList.toggle('active');
+
+        const index = activeTags.indexOf(selectedTag);
+        if (index > -1) {
+          activeTags.splice(index, 1);
+        } else {
+          activeTags.push(selectedTag);
         }
         
-        // Filter projects
-        const filteredProjects = allProjects.filter(project => 
-          project.tags && project.tags.includes(selectedTag)
-        );
+        if (activeTags.length > 0) {
+          if (clearFilterButton) {
+            clearFilterButton.classList.remove('opacity-0', 'pointer-events-none');
+            clearFilterButton.setAttribute('aria-hidden', 'false');
+          }
+        } else {
+          if (clearFilterButton) {
+            clearFilterButton.classList.add('opacity-0', 'pointer-events-none');
+            clearFilterButton.setAttribute('aria-hidden', 'true');
+          }
+        }
         
-        renderProjects(filteredProjects);
+        filterAndRenderProjects();
       });
     });
     
     // Clear filter handler
     if (clearFilterButton) {
       clearFilterButton.addEventListener('click', () => {
+        activeTags = [];
         // Reset active tag styling
         tagButtons.forEach(btn => {
-          btn.classList.remove('filter-active');
+          btn.classList.remove('active');
         });
         
         // Hide clear filter button without affecting layout height
