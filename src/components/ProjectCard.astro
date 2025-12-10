@@ -30,9 +30,14 @@ const { project } = Astro.props;
     <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
       <a href={project.demoLink} target="_blank" rel={project.demoLinkRel}>{project.name}</a>
     </h3>
-    <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3">
-      {project.description}
-    </p>
+    <div class="relative abstract-container">
+        <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated">
+        {project.description}
+        </p>
+        <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;">
+            {project.description}
+        </div>
+    </div>
     <div class="flex justify-end gap-3 mt-auto self-end">
         {
         project.postLink &&
@@ -68,3 +73,51 @@ const { project } = Astro.props;
     </div>
   </div>
 </div>
+<script>
+    function attachAbstractListeners() {
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if ((container as HTMLElement).dataset.listenerAttached) {
+                return;
+            }
+            (container as HTMLElement).dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated') as HTMLElement;
+            const full = container.querySelector('.abstract-full') as HTMLElement;
+            let hideTimeout: number;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script>

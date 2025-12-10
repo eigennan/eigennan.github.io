@@ -1,0 +1,123 @@
+---
+interface Props {
+  bibtex: string;
+}
+const { bibtex } = Astro.props;
+---
+
+<div class="cite-container relative">
+  <button class="cite-button tag-pill cursor-pointer">
+    Cite
+  </button>
+  <div class="cite-bubble absolute bottom-full right-0 mb-2 p-1.5 bg-gray-100 dark:bg-zinc-800 rounded text-xs overflow-x-auto w-72 max-h-56 z-10" style="word-break: break-all; display: none;">
+    <div class="cite-notification font-bold mb-1"></div>
+    <pre class="cite-bibtex-content text-xs whitespace-pre-wrap">{bibtex}</pre>
+  </div>
+</div>
+
+<script>
+  function attachCiteListeners() {
+    document.querySelectorAll('.cite-container').forEach(container => {
+      if ((container as HTMLElement).dataset.listenerAttached) {
+        return;
+      }
+      (container as HTMLElement).dataset.listenerAttached = 'true';
+      
+      const button = container.querySelector('.cite-button') as HTMLElement;
+      const bubble = container.querySelector('.cite-bubble') as HTMLElement;
+      const notification = container.querySelector('.cite-notification') as HTMLElement;
+      const bibtexContent = container.querySelector('.cite-bibtex-content') as HTMLElement;
+      
+      if (!button || !bubble || !notification || !bibtexContent) {
+        return;
+      }
+      const bibtex = bibtexContent.textContent || '';
+      let hideTimeout: number;
+
+      const showBubble = () => {
+        clearTimeout(hideTimeout);
+        // Hide other bubbles
+        document.querySelectorAll('.cite-bubble').forEach(b => {
+            if (b !== bubble) {
+                (b as HTMLElement).style.display = 'none';
+                const parentCard = (b as HTMLElement).closest('.group');
+                if (parentCard) {
+                    parentCard.classList.remove('z-20');
+                }
+            }
+        });
+
+        // Toggle z-index on the parent card
+        const parentCard = container.closest('.group');
+        if (parentCard) {
+            parentCard.classList.add('z-20');
+        }
+
+        notification.textContent = 'Bibtex copied!';
+        bubble.style.display = 'block';
+
+        const bubbleRect = bubble.getBoundingClientRect();
+
+        if (bubbleRect.right > window.innerWidth) {
+          bubble.style.right = 'auto';
+          bubble.style.left = '0';
+        }
+        if (bubbleRect.left < 0) {
+          bubble.style.left = '0';
+        }
+      };
+
+      const hideBubble = () => {
+        hideTimeout = window.setTimeout(() => {
+            bubble.style.display = 'none';
+            bubble.style.right = '0';
+            bubble.style.left = 'auto';
+            const parentCard = container.closest('.group');
+            if (parentCard) {
+                parentCard.classList.remove('z-20');
+            }
+        }, 300);
+      };
+
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        navigator.clipboard.writeText(bibtex.trim()).then(() => {
+            showBubble();
+        }).catch(err => {
+          console.error('Failed to copy: ', err);
+          notification.textContent = 'Failed to copy bibtex.';
+        });
+      });
+      
+      button.addEventListener('mouseleave', () => {
+        hideBubble();
+      });
+
+      bubble.addEventListener('mouseenter', () => {
+        clearTimeout(hideTimeout);
+      });
+
+      bubble.addEventListener('mouseleave', () => {
+        hideBubble();
+      });
+    });
+
+    // Close bubble on outside click
+    document.addEventListener('click', (event) => {
+      const target = event.target as Element;
+      const isClickInside = target.closest('.cite-container');
+      if (!isClickInside) {
+        document.querySelectorAll('.cite-bubble').forEach(bubble => {
+          (bubble as HTMLElement).style.display = 'none';
+          const parentCard = (bubble as HTMLElement).closest('.group');
+          if (parentCard) {
+            parentCard.classList.remove('z-20');
+          }
+        });
+      }
+    });
+  }
+
+  attachCiteListeners();
+  document.addEventListener('astro:after-swap', attachCiteListeners);
+</script>

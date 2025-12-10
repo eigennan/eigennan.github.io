@@ -76,14 +76,14 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
         return;
       }
       
-      filtered.forEach((project, index) => {
-        const projectCard = createProjectCard(project, index);
+      filtered.forEach((project) => {
+        const projectCard = createProjectCard(project);
         projectContainer.appendChild(projectCard);
       });
     }
     
     // Helper function to create a project card
-    function createProjectCard(project, index) {
+    function createProjectCard(project) {
         const cardContainer = document.createElement('div');
         cardContainer.className = 'h-full';
 
@@ -119,9 +119,20 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
         titleLink.textContent = project.name;
         title.appendChild(titleLink);
 
+        const descriptionContainer = document.createElement('div');
+        descriptionContainer.className = 'relative abstract-container';
+        
         const description = document.createElement('p');
-        description.className = 'mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3';
+        description.className = 'mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated';
         description.textContent = project.description;
+
+        const fullDescription = document.createElement('div');
+        fullDescription.className = 'absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full';
+        fullDescription.textContent = project.description;
+        fullDescription.style.display = 'none';
+
+        descriptionContainer.appendChild(description);
+        descriptionContainer.appendChild(fullDescription);
 
         const footer = document.createElement('div');
         footer.className = 'flex justify-end gap-3 mt-auto self-end';
@@ -155,50 +166,45 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
         }
 
         content.appendChild(title);
-        content.appendChild(description);
+        content.appendChild(descriptionContainer);
         content.appendChild(footer);
         card.appendChild(imageContainer);
         card.appendChild(content);
         cardContainer.appendChild(card);
+
+        let hideTimeout;
+
+        const showFullAbstract = () => {
+            clearTimeout(hideTimeout);
+            fullDescription.style.display = 'block';
+            const fullRect = fullDescription.getBoundingClientRect();
+            if (fullRect.right > window.innerWidth) {
+                fullDescription.style.right = '0';
+                fullDescription.style.left = 'auto';
+            }
+            if (fullRect.left < 0) {
+                fullDescription.style.left = '0';
+                fullDescription.style.right = 'auto';
+            }
+        };
+
+        const hideFullAbstract = () => {
+            hideTimeout = window.setTimeout(() => {
+                fullDescription.style.display = 'none';
+                fullDescription.style.left = '0';
+                fullDescription.style.right = 'auto';
+            }, 300);
+        };
+
+        description.addEventListener('mouseenter', showFullAbstract);
+        description.addEventListener('mouseleave', hideFullAbstract);
+        fullDescription.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+        fullDescription.addEventListener('mouseleave', hideFullAbstract);
+
         return cardContainer;
     }
     
-    // Copy the toggleDescription function from ProjectList.astro
-    function toggleProjectDescription(index) {
-      const descriptionEl = document.getElementById(`project-description-${index}`);
-      const descriptionFullEl = document.getElementById(`project-description-full-${index}`);
-      const buttonEl = document.getElementById(`project-read-more-${index}`);
-      
-      if (!descriptionEl || !descriptionFullEl || !buttonEl) return;
-      
-      if (descriptionEl.classList.contains('line-clamp-2')) {
-        // Expand
-        descriptionEl.classList.remove('line-clamp-2');
-        descriptionEl.classList.add('hidden');
-        descriptionFullEl.classList.remove('hidden');
-        buttonEl.textContent = 'Show less';
-      } else {
-        // Collapse
-        descriptionEl.classList.add('line-clamp-2');
-        descriptionEl.classList.remove('hidden');
-        descriptionFullEl.classList.add('hidden');
-        buttonEl.textContent = 'Read more';
-      }
-    }
-    
-    function filterAndRenderProjects() {
-      let filteredProjects;
-      if (activeTags.length === 0) {
-        filteredProjects = allProjects;
-      } else {
-        filteredProjects = allProjects.filter(project => 
-          project.tags && activeTags.every(tag => project.tags.includes(tag))
-        );
-      }
-      renderProjects(filteredProjects);
-    }
-    
-    // Add click handlers to tag buttons
+    // Event listeners for tag buttons
     tagButtons.forEach(button => {
       button.addEventListener('click', () => {
         const selectedTag = button.getAttribute('data-tag');
