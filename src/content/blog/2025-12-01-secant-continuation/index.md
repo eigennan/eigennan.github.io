@@ -6,7 +6,7 @@ description: 'A concrete example of using arclength continuation to overcome fol
 pubDate: '2025-12-01'
 updatedDate: '2025-12-01'
 tags: ["Dynamical Systems", "Continuation", "Numerical Methods"]
-# coverImage: './astro-banner.png'
+coverImage: './secant_continuation.png'
 ---
 
 Here is a toy problem with a typical saddle-node bifurcation
