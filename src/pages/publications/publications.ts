@@ -101,7 +101,7 @@ export const publications: Publications[] = [
     abstract: 'We count the number of compatible pairs of indexing systems for the cyclic group $C_{p^n}$. Building on work of Balchin--Barnes--Roitzheim, we show that this sequence of natural numbers is another family of Fuss--Catalan numbers. We count this two different ways: showing how the conditions of compatibility give natural recursive formulas for the number of admissible sets and using an enumeration of ways to extend indexing systems by conceptually simpler pieces.',
     paperLink: 'https://doi.org/10.2140/om.2024.1.37',
     paperLinkRel: 'nofollow noopener noreferrer',
-    journal: 'Orbita Mathematicae Vol.1, No.1, 2024.',
+    journal: 'Orbita Mathematicae',
     pdf: '/ccis.pdf',
     authors: [
         {
