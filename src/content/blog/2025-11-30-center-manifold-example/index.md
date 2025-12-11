@@ -260,7 +260,7 @@ For even higher order expansion of this reduced equation, one can repeat the pro
 
 As a final reminder, $(A(t), \bar A(t))$ is the coordinate in the center subspace spanned by $e^{\pm ix}$. So this reduced equation describes the dynamics near the trivial solution $(u,\mu)=(0,0)$. Another note is that $w$ should be thought of as the image of $v$ under a smooth[^2] map $h$, i.e., $w = h(v;\mu)$. By inspecting the Taylor expansion of $h$ (*suppressing $\mu$ for simplicity*):
 $$
-w = h(v) = \underbrace{h(0)}_{=0} + \underbrace{Dh(0)}_{=0} + \frac{1}{2} D^2 h(0) + \ldots
+w = h(v) = \underbrace{h(0)}_{=0} + \underbrace{Dh(0)}_{=0} v + \frac{1}{2} D^2 h(0) v^2 + \ldots
 $$
 * The first term vanishes because the center manifold passes through the point $u=0$.
 * The second term is zero because the center manifold is tangent to the center subspace at $u=0$.
