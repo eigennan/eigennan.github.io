@@ -13,7 +13,7 @@ Here is a toy problem with a typical saddle-node bifurcation
 $$
 \dot{u} = \mu  -u^2
 $$
-that demonstrates the need for secant continuation. For each $\mu \in \mathbb{R}_{\geq 0}$ there is an (or two) equilibrium solution $u \equiv \pm\sqrt{\mu}$. Suppose we only know *one* such fixed point $(u,\mu) = (2,4)$ and wish to find all other equilibria. In practice, discretized differential equations for example, the actual landscape of the dynamical system is often higher dimensional and much more complex than a nice quadratic curve. We employ a basic example here to highlight the core theoretical concepts, avoiding the obfuscation of unnecessary details. The method discussed here applies to a large family of problem of the form $F(v(t))=0$ where $F: \mathbb{R}^{n+1} \to \mathbb{R}^n$ and $v=(u,\mu)$.
+that demonstrates the need for continuation method. For each $\mu \in \mathbb{R}_{\geq 0}$ there is an (or two) equilibrium solution $u \equiv \pm\sqrt{\mu}$. Suppose we only know *one* such fixed point $(u,\mu) = (2,4)$ and wish to find all other equilibria. In practice, discretized differential equations for example, the actual landscape of the dynamical system is often higher dimensional and much more complex than a nice quadratic curve. We employ a basic example here to highlight the core theoretical concepts, avoiding the obfuscation of unnecessary details. The method discussed here applies to a large family of problem of the form $F(v(t))=0$ where $F: \mathbb{R}^{n+1} \to \mathbb{R}^n$ and $v=(u,\mu)$.
 
 ## Baby Continuation
 
