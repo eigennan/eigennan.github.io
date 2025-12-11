@@ -6,7 +6,7 @@ description: 'A concrete example of center manifold reduction for PDE'
 pubDate: '2025-11-30'
 updatedDate: '2025-11-30'
 tags: ["Dynamical Systems", "Center Manifold", "PDE"]
-# coverImage: './astro-banner.png'
+coverImage: './manifold.png'
 ---
 
 Consider the $1$-dimensional parabolic problem
