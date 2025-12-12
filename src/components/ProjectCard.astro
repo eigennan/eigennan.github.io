@@ -1,6 +1,7 @@
 ---
 import { Image } from 'astro:assets';
 import type { Project } from '../pages/projects/projects';
+import { HOVER_ABSTRACT_ENABLED } from '@src/consts';
 
 interface Props {
   project: Project;
@@ -12,6 +13,7 @@ const { project } = Astro.props;
 <div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300">
   <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
     {project.coverImage && (
+      <a href={project.demoLink} target="_blank" rel={project.demoLinkRel}>
       <Image
         src={project.coverImage}
         alt={project.name}
@@ -19,6 +21,7 @@ const { project } = Astro.props;
         width={720}
         height={360}
       />
+      </a>
     )}
     {!project.coverImage && (
       <div class="flex h-full items-center justify-center text-zinc-400 dark:text-zinc-600">
@@ -73,17 +76,20 @@ const { project } = Astro.props;
     </div>
   </div>
 </div>
-<script>
+<script id="project-card-script" data-hover-enabled={HOVER_ABSTRACT_ENABLED}>
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
     function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
         document.querySelectorAll('.abstract-container').forEach(container => {
-            if ((container as HTMLElement).dataset.listenerAttached) {
+            if (container.dataset.listenerAttached) {
                 return;
             }
-            (container as HTMLElement).dataset.listenerAttached = 'true';
+            container.dataset.listenerAttached = 'true';
 
-            const truncated = container.querySelector('.abstract-truncated') as HTMLElement;
-            const full = container.querySelector('.abstract-full') as HTMLElement;
-            let hideTimeout: number;
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
 
             if (!truncated || !full) {
                 return;

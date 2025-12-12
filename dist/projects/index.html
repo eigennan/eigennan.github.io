@@ -65,13 +65,425 @@ const t={preserveBehavior:!1},e=e=>{if("string"==typeof e)return[e,t];const[n,r=
 		document.getElementById('themeToggle')?.addEventListener('click', handleToggleClick);
 	</script> </header> <div class="py-8 min-h-[calc(100vh-160px)]">  <div class="container mx-auto px-4"> <div class="space-y-6"> <div class="glass-panel p-4"> <div class="flex flex-col gap-3"> <div class="flex flex-wrap items-center gap-3"> <h3 class="text-lg font-medium">Filter by tag</h3> <button id="clear-filter" class="tag-pill clear-pill items-center gap-1.5 justify-start ml-auto opacity-0 pointer-events-none" aria-hidden="true"> <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M18 6 6 18"></path> <path d="m6 6 12 12"></path> </svg>
 Clear filter
-</button> </div> <div class="flex flex-wrap gap-2"> <button class="tag-filter tag-pill break-words" data-tag="MATLAB"> MATLAB </button><button class="tag-filter tag-pill break-words" data-tag="Numerical Continuation"> Numerical Continuation </button><button class="tag-filter tag-pill break-words" data-tag="Numerical Simulation"> Numerical Simulation </button> </div> </div> </div> <div id="project-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> <div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <img src="/spiral50.png" alt="Spiral Waves via Geometric Flows" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105">  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows" target="_blank" rel="nofollow noopener noreferrer">Spiral Waves via Geometric Flows</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">  <a class="tag-pill flex items-center gap-1" href="https://arxiv.org/abs/2312.07809" target="_blank" rel="noopener">
+</button> </div> <div class="flex flex-wrap gap-2"> <button class="tag-filter tag-pill break-words" data-tag="Direct Simulation"> Direct Simulation </button><button class="tag-filter tag-pill break-words" data-tag="MATLAB"> MATLAB </button><button class="tag-filter tag-pill break-words" data-tag="Numerical Continuation"> Numerical Continuation </button><button class="tag-filter tag-pill break-words" data-tag="Python"> Python </button> </div> </div> </div> <div id="project-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> <div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/sh.png" alt="Dynamical Bestiary: Swift-Hohenberg Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: Swift-Hohenberg Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/ch.png" alt="Dynamical Bestiary: Cahn-Hilliard Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: Cahn-Hilliard Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the Cahn-Hilliard equation. Explores pattern formations using numerical continuation and direct simulation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the Cahn-Hilliard equation. Explores pattern formations using numerical continuation and direct simulation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/ks.png" alt="Dynamical Bestiary: Kuramoto-Sivashinsky Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: Kuramoto-Sivashinsky Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Allen-Cahn-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/ac.png" alt="Dynamical Bestiary: Allen-Cahn Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Allen-Cahn-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: Allen-Cahn Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the Allen-Cahn equation. Explores pattern formations using numerical continuation and direct simulation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the Allen-Cahn equation. Explores pattern formations using numerical continuation and direct simulation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-Allen-Cahn-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-FitzHugh-Nagumo-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/fn.png" alt="Dynamical Bestiary: FitzHugh-Nagumo Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-FitzHugh-Nagumo-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: FitzHugh-Nagumo Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the FitzHugh-Nagumo equation. Explores pattern formations using numerical continuation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the FitzHugh-Nagumo equation. Explores pattern formations using numerical continuation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-FitzHugh-Nagumo-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Bratu-Equation" target="_blank" rel="nofollow noopener noreferrer"> <img src="/bratu.png" alt="Dynamical Bestiary: Bratu Equation" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Dynamical-Bestiary-Bratu-Equation" target="_blank" rel="nofollow noopener noreferrer">Dynamical Bestiary: Bratu Equation</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> Python notebook for the Bratu equation. Explores pattern formations using numerical continuation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> Python notebook for the Bratu equation. Explores pattern formations using numerical continuation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Dynamical-Bestiary-Bratu-Equation" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/Spiral-Waves-in-Theta-Model" target="_blank" rel="nofollow noopener noreferrer"> <img src="/spiral_eq.png" alt="Spiral Waves in the Theta Model" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Spiral-Waves-in-Theta-Model" target="_blank" rel="nofollow noopener noreferrer">Spiral Waves in the Theta Model</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Spiral-Waves-in-Theta-Model" target="_blank" rel="nofollow noopener noreferrer">
+Demo
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <a href="https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows" target="_blank" rel="nofollow noopener noreferrer"> <img src="/spiral50.png" alt="Spiral Waves via Geometric Flows" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"> </a>  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows" target="_blank" rel="nofollow noopener noreferrer">Spiral Waves via Geometric Flows</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">  <a class="tag-pill flex items-center gap-1" href="https://arxiv.org/abs/2312.07809" target="_blank" rel="noopener">
 Paper
 </a> <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows" target="_blank" rel="nofollow noopener noreferrer">
 Demo
-</a> </div> </div> </div> <script type="module">function n(){document.querySelectorAll(".abstract-container").forEach(e=>{if(e.dataset.listenerAttached)return;e.dataset.listenerAttached="true";const s=e.querySelector(".abstract-truncated"),t=e.querySelector(".abstract-full");let l;if(!s||!t)return;const i=()=>{clearTimeout(l),t.style.display="block";const a=t.getBoundingClientRect();a.right>window.innerWidth&&(t.style.right="0",t.style.left="auto"),a.left<0&&(t.style.left="0",t.style.right="auto")},r=()=>{l=window.setTimeout(()=>{t.style.display="none",t.style.left="0",t.style.right="auto"},300)};s.addEventListener("mouseenter",i),s.addEventListener("mouseleave",r),t.addEventListener("mouseenter",()=>clearTimeout(l)),t.addEventListener("mouseleave",r)})}n();document.addEventListener("astro:after-swap",n);</script></div><div class="h-full"><div class="group flex flex-col h-full overflow-hidden rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300"> <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative"> <img src="/spiral_eq.png" alt="Spiral Waves in the Theta Model" loading="lazy" decoding="async" fetchpriority="auto" width="720" height="360" class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105">  </div> <div class="flex flex-1 flex-col p-5"> <h3 class="mb-2 text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"> <a href="https://github.com/eigenan/Spiral-Waves-in-Theta-Model" target="_blank" rel="nofollow noopener noreferrer">Spiral Waves in the Theta Model</a> </h3> <div class="relative abstract-container"> <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated"> MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods. </p> <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;"> MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods. </div> </div> <div class="flex justify-end gap-3 mt-auto self-end">   <a class="tag-pill flex items-center gap-1" href="https://github.com/eigenan/Spiral-Waves-in-Theta-Model" target="_blank" rel="nofollow noopener noreferrer">
-Demo
-</a> </div> </div> </div> </div> </div> </div> </div>  </div> <footer class="container mt-8"> <!-- <div class="justify-center flex gap-4 py-8 prose dark:prose-invert text-sm">
+</a> </div> </div> </div> <script id="project-card-script" data-hover-enabled="true">
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('project-card-script')?.dataset.hoverEnabled ?? 'true');
+
+    function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
+        document.querySelectorAll('.abstract-container').forEach(container => {
+            if (container.dataset.listenerAttached) {
+                return;
+            }
+            container.dataset.listenerAttached = 'true';
+
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
+
+            if (!truncated || !full) {
+                return;
+            }
+
+            const showFullAbstract = () => {
+                clearTimeout(hideTimeout);
+                full.style.display = 'block';
+                const fullRect = full.getBoundingClientRect();
+                if (fullRect.right > window.innerWidth) {
+                    full.style.right = '0';
+                    full.style.left = 'auto';
+                }
+                if (fullRect.left < 0) {
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }
+            };
+
+            const hideFullAbstract = () => {
+                hideTimeout = window.setTimeout(() => {
+                    full.style.display = 'none';
+                    full.style.left = '0';
+                    full.style.right = 'auto';
+                }, 300);
+            };
+
+            truncated.addEventListener('mouseenter', showFullAbstract);
+            truncated.addEventListener('mouseleave', hideFullAbstract);
+            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            full.addEventListener('mouseleave', hideFullAbstract);
+        });
+    }
+
+    attachAbstractListeners();
+    document.addEventListener('astro:after-swap', attachAbstractListeners);
+</script></div> </div> </div> </div>  </div> <footer class="container mt-8"> <!-- <div class="justify-center flex gap-4 py-8 prose dark:prose-invert text-sm">
     <a href="#">Newsletter</a>
     <a href="#">Buy me a Coffee</a>
     <a href="#">RSS</a>
@@ -89,7 +501,7 @@ Demo
           gtag('config', GTAG_MEASUREMENT_ID);
         </script>
       </>
-    } --> </body></html> <script>(function(){const projects = [{"name":"Spiral Waves via Geometric Flows","description":"MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space.","demoLink":"https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows","demoLinkRel":"nofollow noopener noreferrer","tags":["MATLAB","Numerical Simulation"],"paperLink":"https://arxiv.org/abs/2312.07809","image":"/spiral50.png","coverImage":"/spiral50.png","imageAlt":"Spiral wave simulation snapshot with core radius 50"},{"name":"Spiral Waves in the Theta Model","description":"MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods.","demoLink":"https://github.com/eigenan/Spiral-Waves-in-Theta-Model","demoLinkRel":"nofollow noopener noreferrer","tags":["MATLAB","Numerical Continuation"],"image":"/spiral_eq.png","coverImage":"/spiral_eq.png","imageAlt":"Relative equilibrium spiral solution for the theta model"}];
+    } --> </body></html> <script>(function(){const projects = [{"name":"Dynamical Bestiary: Swift-Hohenberg Equation","description":"Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/sh.png","coverImage":"/sh.png"},{"name":"Dynamical Bestiary: Cahn-Hilliard Equation","description":"Python notebook for the Cahn-Hilliard equation. Explores pattern formations using numerical continuation and direct simulation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/ch.png","coverImage":"/ch.png"},{"name":"Dynamical Bestiary: Kuramoto-Sivashinsky Equation","description":"Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/ks.png","coverImage":"/ks.png"},{"name":"Dynamical Bestiary: Allen-Cahn Equation","description":"Python notebook for the Allen-Cahn equation. Explores pattern formations using numerical continuation and direct simulation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-Allen-Cahn-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/ac.png","coverImage":"/ac.png"},{"name":"Dynamical Bestiary: FitzHugh-Nagumo Equation","description":"Python notebook for the FitzHugh-Nagumo equation. Explores pattern formations using numerical continuation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-FitzHugh-Nagumo-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/fn.png","coverImage":"/fn.png"},{"name":"Dynamical Bestiary: Bratu Equation","description":"Python notebook for the Bratu equation. Explores pattern formations using numerical continuation methods.","demoLink":"https://github.com/eigenan/Dynamical-Bestiary-Bratu-Equation","demoLinkRel":"nofollow noopener noreferrer","tags":["Python","Numerical Continuation","Direct Simulation"],"image":"/bratu.png","coverImage":"/bratu.png"},{"name":"Spiral Waves in the Theta Model","description":"MATLAB project that explores spiral wave solutions in the theta model through a PDE formulation using time stepping and numerical continuation methods.","demoLink":"https://github.com/eigenan/Spiral-Waves-in-Theta-Model","demoLinkRel":"nofollow noopener noreferrer","tags":["MATLAB","Numerical Continuation"],"image":"/spiral_eq.png","coverImage":"/spiral_eq.png","imageAlt":"Relative equilibrium spiral solution for the theta model"},{"name":"Spiral Waves via Geometric Flows","description":"MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space.","demoLink":"https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows","demoLinkRel":"nofollow noopener noreferrer","tags":["MATLAB","Direct Simulation"],"paperLink":"https://arxiv.org/abs/2312.07809","image":"/spiral50.png","coverImage":"/spiral50.png","imageAlt":"Spiral wave simulation snapshot with core radius 50"}];
 
   // Client-side filtering logic
   document.addEventListener('DOMContentLoaded', () => {
@@ -247,6 +659,18 @@ Demo
         fullDescription.addEventListener('mouseleave', hideFullAbstract);
 
         return cardContainer;
+    }
+
+    function filterAndRenderProjects() {
+      let filteredProjects;
+      if (activeTags.length === 0) {
+        filteredProjects = allProjects;
+      } else {
+        filteredProjects = allProjects.filter(project =>
+          project.tags && activeTags.every(tag => project.tags.includes(tag))
+        );
+      }
+      renderProjects(filteredProjects);
     }
     
     // Event listeners for tag buttons

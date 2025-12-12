@@ -4,3 +4,4 @@
 export const SITE_TITLE = 'Nan Li';
 export const SITE_TAGLINE = 'University of Minnesota'; // site tagline
 export const SITE_DESCRIPTION = ''; // site meta description for SEO
+export const HOVER_ABSTRACT_ENABLED = true; // enable/disable the hover over to display the full abstract/description

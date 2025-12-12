@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import type { Publications } from '../pages/publications/publications';
 import CiteButton from './CiteButton.astro';
+import { HOVER_ABSTRACT_ENABLED } from '@src/consts';
 
 interface Props {
   publication: Publications;
@@ -13,6 +14,7 @@ const { publication } = Astro.props;
 <div class="group relative flex flex-col h-full rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300">
   <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
     {publication.coverImage && (
+      <a href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
       <Image
         src={publication.coverImage}
         alt={publication.name}
@@ -20,6 +22,7 @@ const { publication } = Astro.props;
         width={720}
         height={360}
       />
+      </a>
     )}
     {!publication.coverImage && (
       <div class="flex h-full items-center justify-center text-zinc-400 dark:text-zinc-600">
@@ -59,17 +62,20 @@ const { publication } = Astro.props;
     </div>
   </div>
 </div>
-<script>
+<script id="publication-card-script" data-hover-enabled={HOVER_ABSTRACT_ENABLED}>
+    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('publication-card-script')?.dataset.hoverEnabled ?? 'true');
+
     function attachAbstractListeners() {
+        if (!HOVER_ABSTRACT_ENABLED) return;
         document.querySelectorAll('.abstract-container').forEach(container => {
-            if ((container as HTMLElement).dataset.listenerAttached) {
+            if (container.dataset.listenerAttached) {
                 return;
             }
-            (container as HTMLElement).dataset.listenerAttached = 'true';
+            container.dataset.listenerAttached = 'true';
 
-            const truncated = container.querySelector('.abstract-truncated') as HTMLElement;
-            const full = container.querySelector('.abstract-full') as HTMLElement;
-            let hideTimeout: number;
+            const truncated = container.querySelector('.abstract-truncated');
+            const full = container.querySelector('.abstract-full');
+            let hideTimeout;
 
             if (!truncated || !full) {
                 return;

@@ -56,20 +56,20 @@ const posts = (await getCollection('blog'))
       </div>
       <div>
         <div class="flex justify-between gap-2 mb-1">
-          <h2 class="text-lg font-bold mb-3">Recent Publications</h2>
-          <a href="/publications/" class="inline-block py-2 underline dark:prose-invert">All publications &raquo;</a>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <PublicationList publications={recentPublications}/>
-        </div>
-      </div>
-      <div class="mt-12">
-        <div class="flex justify-between gap-2 mb-1">
           <h2 class="text-lg font-bold mb-3">Recent Projects</h2>
           <a href="/projects/" class="inline-block py-2 underline dark:prose-invert">All projects &raquo;</a>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ProjectList projects={top6Projects}/>
+        </div>
+      </div>
+      <div class="mt-12">
+        <div class="flex justify-between gap-2 mb-1">
+          <h2 class="text-lg font-bold mb-3">Recent Publications</h2>
+          <a href="/publications/" class="inline-block py-2 underline dark:prose-invert">All publications &raquo;</a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <PublicationList publications={recentPublications}/>
         </div>
       </div>
 		</main>

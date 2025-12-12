@@ -203,6 +203,18 @@ const allTags = [...new Set(projects.flatMap(project => project.tags || []))].so
 
         return cardContainer;
     }
+
+    function filterAndRenderProjects() {
+      let filteredProjects;
+      if (activeTags.length === 0) {
+        filteredProjects = allProjects;
+      } else {
+        filteredProjects = allProjects.filter(project =>
+          project.tags && activeTags.every(tag => project.tags.includes(tag))
+        );
+      }
+      renderProjects(filteredProjects);
+    }
     
     // Event listeners for tag buttons
     tagButtons.forEach(button => {
