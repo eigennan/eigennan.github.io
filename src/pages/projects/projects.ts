@@ -82,7 +82,7 @@ export const projects: Project[] = [
     description: 'MATLAB project that simulates 2D spiral waves using geometric flows. The simulation visualizes the formation and evolution of spiral wave patterns in a two-dimensional space.',
     demoLink: 'https://github.com/eigenan/2D-Spiral-Waves-via-Geometric-Flows',
     demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["MATLAB", "Direct Simulation"],
+    tags: ["MATLAB", "Shooting Method"],
     paperLink: 'https://arxiv.org/abs/2312.07809',
     image: '/spiral50.png',
     coverImage: '/spiral50.png',
