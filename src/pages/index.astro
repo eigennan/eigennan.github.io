@@ -24,7 +24,7 @@ const posts = (await getCollection('blog'))
 
 <BaseLayout title={SITE_TITLE + ' - ' + SITE_TAGLINE} description={SITE_DESCRIPTION}>
 	<div class='container'>
-		<div class='w-full md:flex md:items-start gap-16 mb-10'>
+		<div class='w-full md:flex md:items-start gap-6 mb-10'>
       <div class="text-pretty leading-9">
         <!-- <h1 class="text-3xl font-bold mb-2">Welcome!</h1> -->
         <Prose>
@@ -35,7 +35,7 @@ const posts = (await getCollection('blog'))
         </Prose>
       </div>
       <div class="flex flex-col items-center shrink-0">
-      <Image src={Ava} alt="Nan Li" width={270} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
+      <Image src={Ava} alt="Nan Li" width={180} loading="eager" class="rounded-3xl rotate-0 mx-4 md:mx-0 shadow-lg"/>
       </div>
 		</div>
 		<main>
