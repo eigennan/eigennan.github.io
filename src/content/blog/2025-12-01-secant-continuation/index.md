@@ -2,7 +2,7 @@
 title: 'Why Arclength Continuation?'
 seoTitle: 'arclength continuation'
 slug: 'arclength-continuation'
-description: 'A concrete example of using arclength continuation to overcome fold points'
+description: 'Overcome fold points using arclength continuation'
 pubDate: '2025-12-01'
 updatedDate: '2025-12-01'
 tags: ["Dynamical Systems", "Continuation", "Numerical Methods"]
