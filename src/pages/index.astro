@@ -14,7 +14,7 @@ import PublicationList from '../components/PublicationList.astro'
 
 type BlogPost = CollectionEntry<'blog'>;
 
-const top6Projects = projects.slice(0, 3);
+const top6Projects = projects.slice(0, 6);
 const recentPublications = publications.slice(0, 3);
 const posts = (await getCollection('blog'))
   .filter((post) => post.data.draft !== true)
