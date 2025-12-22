@@ -22,9 +22,9 @@ const t={preserveBehavior:!1},e=e=>{if("string"==typeof e)return[e,t];const[n,r=
 			if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
 				return 'dark';
 			}
-			// if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-			// 	return localStorage.getItem('theme');
-			// }
+			if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+				return localStorage.getItem('theme');
+			}
 			return 'light';
 		})();
 
