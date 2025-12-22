@@ -23,7 +23,7 @@ export const projects: Project[] = [
     coverImage: '/ac_output.png'
   },
   {
-    name: 'SciML: Learning FitzHugh Nagumo Equation via Extended Physics Informed Neural Network (XPINN)',
+    name: 'SciML: FitzHugh Nagumo Equation via Extended Physics Informed Neural Network (XPINN)',
     description: 'Python project that utilizes Extended Physics Informed Neural Networks (XPINN) to learn the multiple time scale dynamics for the FitzHugh-Nagumo equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-FitzHugh-Nagumo-Equation-via-Extended-Physics-Informed-Neural-Network',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -32,7 +32,7 @@ export const projects: Project[] = [
     coverImage: '/fn_output1.png'
   },
   {
-    name: 'SciML: Learning 2D Kuramoto-Sivashinsky Equation via Fourier Neural Networks',
+    name: 'SciML: 2D Kuramoto-Sivashinsky Equation via Fourier Neural Networks',
     description: 'Python project that employs Fourier Neural Networks to learn the solution operator for the 2D Kuramoto-Sivashinsky equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Kuramoto-Sivashinsky-Equation-via-Fourier-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -68,7 +68,7 @@ export const projects: Project[] = [
     coverImage: '/ch.png'
   },
   {
-    name: 'SciML: Learning Burger\'s Equation via Physics Informed Neural Networks (PINN)',
+    name: 'SciML: Burger\'s Equation via Physics Informed Neural Networks (PINN)',
     description: ' Python project that utilizes Physics Informed Neural Networks (PINN) to learn the solution operator for Burger\'s equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Burgers-Equation-via-Physics-Informed-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -77,7 +77,7 @@ export const projects: Project[] = [
     coverImage: '/burger_output1.png'
   },
   {
-    name: 'SciML: Learning Damped Harmonic Oscillator via NeuralODE',
+    name: 'SciML: Damped Harmonic Oscillator via NeuralODE',
     description: 'Python project that employs  Neural Ordinary Differential Equations (NeuralODE) to learn the dynamics of a damped harmonic oscillator.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Damped-Harmonic-Oscillator-via-Neural-ODE',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -86,7 +86,7 @@ export const projects: Project[] = [
     coverImage: '/neuralode_data.png'
   },
   {
-    name: 'SciML: Learning Damped Mass-Spring System via Hamiltonian Neural Networks (HNN)',
+    name: 'SciML: Damped Mass-Spring System via Hamiltonian Neural Networks (HNN)',
     description: 'Python project that utilizes Hamiltonian Neural Networks (HNN) to learn the dynamics of a mass-spring system, focusing on modeling the energy-dissipation properties of the system using neural networks.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Damped-Mass-Spring-via-Hamiltonian-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -95,7 +95,7 @@ export const projects: Project[] = [
     coverImage: '/hnn1.png'
   },
   {
-    name: 'SciML: Learning Mass-Spring System via Hamiltonian Neural Networks (HNN)',
+    name: 'SciML: Mass-Spring System via Hamiltonian Neural Networks (HNN)',
     description: 'Python project that utilizes Hamiltonian Neural Networks (HNN) to learn the dynamics of a damped mass-spring system, with a focus on modeling the energy-conserving properties of the system using neural networks.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Mass-Spring-via-Hamiltonian-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -113,7 +113,7 @@ export const projects: Project[] = [
     coverImage: '/darcy_output.png'
   },
   {
-    name: 'SciML: Learning Advection Diffusion via DeepONet',
+    name: 'SciML: Advection Diffusion via DeepONet',
     description: 'Python project that uses Deep Operator Networks (DeepONet) to learn the solution operator for the advection-diffusion equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Advection-Diffusion-via-DeepONet',
     demoLinkRel: 'nofollow noopener noreferrer',
