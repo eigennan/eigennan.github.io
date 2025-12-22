@@ -32,7 +32,7 @@ export const projects: Project[] = [
     coverImage: '/fn_output1.png'
   },
   {
-    name: 'SciML: 2D Kuramoto-Sivashinsky Equation via Fourier Neural Networks',
+    name: 'SciML: 2D Kuramoto-Sivashinsky Equation via Fourier Neural Networks (FNO)',
     description: 'Python project that employs Fourier Neural Networks to learn the solution operator for the 2D Kuramoto-Sivashinsky equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Kuramoto-Sivashinsky-Equation-via-Fourier-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
@@ -104,7 +104,7 @@ export const projects: Project[] = [
     coverImage: '/hnn2.png'
   },
   {
-    name: 'SciML: 2D Darcy Flow and 1D Kuramoto-Sivashinsky via Fourier Neural Networks',
+    name: 'SciML: 2D Darcy Flow and 1D Kuramoto-Sivashinsky via Fourier Neural Networks (FNO)',
     description: 'Minimal Python projects that employs Fourier Neural Networks to learn the solution operator for 2D Darcy Flow and the 1D Kuramoto-Sivashinsky equation.',
     demoLink: 'https://github.com/eigenan/SciML-Darcy-Flow-and-Kuramoto-Sivashinsky-via-Fourier-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
