@@ -14,6 +14,42 @@ export interface Project {
 
 export const projects: Project[] = [
   {
+    name: 'SciML: Allen-Cahn Equation via Modified DeepONet',
+    description: 'Python project that implements a modified Deep Operator Network (DeepONet) to solve the Allen-Cahn equation. The project focuses on using neural networks to approximate the solution operator for this equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Allen-Cahn-Equation-via-Modified-DeepONet',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "DeepONet"],
+    image: '/ac_output.png',
+    coverImage: '/ac_output.png'
+  },
+  {
+    name: 'SciML: Learning FitzHugh Nagumo Equation via Extended Physics Informed Neural Network (XPINN)',
+    description: 'Python project that utilizes Extended Physics Informed Neural Networks (XPINN) to learn the multiple time scale dynamics for the FitzHugh-Nagumo equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-FitzHugh-Nagumo-Equation-via-Extended-Physics-Informed-Neural-Network',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "Physics Informed Neural Networks"],
+    image: '/fn_output1.png',
+    coverImage: '/fn_output1.png'
+  },
+  {
+    name: 'SciML: Learning 2D Kuramoto-Sivashinsky Equation via Fourier Neural Networks',
+    description: 'Python project that employs Fourier Neural Networks to learn the solution operator for the 2D Kuramoto-Sivashinsky equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Kuramoto-Sivashinsky-Equation-via-Fourier-Neural-Networks',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "Fourier Neural Networks"],
+    image: '/ks_output.png',
+    coverImage: '/ks_output.png'
+  },
+  {
+    name: 'Dynamical Bestiary: Kuramoto-Sivashinsky Equation',
+    description: 'Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods.',
+    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
+    image: '/ks.png',
+    coverImage: '/ks.png'
+  },
+  {
     name: 'Dynamical Bestiary: Swift-Hohenberg Equation',
     description: 'Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods.',
     demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation',
@@ -32,13 +68,58 @@ export const projects: Project[] = [
     coverImage: '/ch.png'
   },
   {
-    name: 'Dynamical Bestiary: Kuramoto-Sivashinsky Equation',
-    description: 'Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods.',
-    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation',
+    name: 'SciML: Learning Burger\'s Equation via Physics Informed Neural Networks (PINN)',
+    description: ' Python project that utilizes Physics Informed Neural Networks (PINN) to learn the solution operator for Burger\'s equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Burgers-Equation-via-Physics-Informed-Neural-Networks',
     demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
-    image: '/ks.png',
-    coverImage: '/ks.png'
+    tags: ["Python", "Machine Learning", "Physics Informed Neural Networks"],
+    image: '/burger_output1.png',
+    coverImage: '/burger_output1.png'
+  },
+  {
+    name: 'SciML: Learning Damped Harmonic Oscillator via NeuralODE',
+    description: 'Python project that employs  Neural Ordinary Differential Equations (NeuralODE) to learn the dynamics of a damped harmonic oscillator.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Damped-Harmonic-Oscillator-via-Neural-ODE',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "NeuralODE"],
+    image: '/neuralode_data.png',
+    coverImage: '/neuralode_data.png'
+  },
+  {
+    name: 'SciML: Learning Damped Mass-Spring System via Hamiltonian Neural Networks (HNN)',
+    description: 'Python project that utilizes Hamiltonian Neural Networks (HNN) to learn the dynamics of a mass-spring system, focusing on modeling the energy-dissipation properties of the system using neural networks.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Damped-Mass-Spring-via-Hamiltonian-Neural-Networks',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "Hamiltonian Neural Networks"],
+    image: '/hnn1.png',
+    coverImage: '/hnn1.png'
+  },
+  {
+    name: 'SciML: Learning Mass-Spring System via Hamiltonian Neural Networks (HNN)',
+    description: 'Python project that utilizes Hamiltonian Neural Networks (HNN) to learn the dynamics of a damped mass-spring system, with a focus on modeling the energy-conserving properties of the system using neural networks.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Mass-Spring-via-Hamiltonian-Neural-Networks',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "Hamiltonian Neural Networks"],
+    image: '/hnn2.png',
+    coverImage: '/hnn2.png'
+  },
+  {
+    name: 'SciML: 2D Darcy Flow and 1D Kuramoto-Sivashinsky via Fourier Neural Networks',
+    description: 'Minimal Python projects that employs Fourier Neural Networks to learn the solution operator for 2D Darcy Flow and the 1D Kuramoto-Sivashinsky equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Darcy-Flow-and-Kuramoto-Sivashinsky-via-Fourier-Neural-Networks',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "Fourier Neural Networks"],
+    image: '/darcy_output.png',
+    coverImage: '/darcy_output.png'
+  },
+  {
+    name: 'SciML: Learning Advection Diffusion via DeepONet',
+    description: 'Python project that uses Deep Operator Networks (DeepONet) to learn the solution operator for the advection-diffusion equation.',
+    demoLink: 'https://github.com/eigenan/SciML-Learning-Advection-Diffusion-via-DeepONet',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Machine Learning", "DeepONet"],
+    image: '/diff_onet_output.png',
+    coverImage: '/diff_onet_output.png'
   },
   {
     name: 'Dynamical Bestiary: Allen-Cahn Equation',
@@ -84,8 +165,8 @@ export const projects: Project[] = [
     demoLinkRel: 'nofollow noopener noreferrer',
     tags: ["MATLAB", "Shooting Method"],
     paperLink: 'https://arxiv.org/abs/2312.07809',
-    image: '/spiral50.png',
-    coverImage: '/spiral50.png',
+    image: '/spiral.png',
+    coverImage: '/spiral.png',
     imageAlt: 'Spiral wave simulation snapshot with core radius 50'
   },
   // {
