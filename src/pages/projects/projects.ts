@@ -23,7 +23,7 @@ export const projects: Project[] = [
     coverImage: '/ac_output.png'
   },
   {
-    name: 'SciML: FitzHugh Nagumo Equation via Extended Physics Informed Neural Network (XPINN)',
+    name: 'SciML: FitzHugh Nagumo Equation via Extended Physics Informed Neural Networks (XPINN)',
     description: 'Python project that utilizes Extended Physics Informed Neural Networks (XPINN) to learn the multiple time scale dynamics for the FitzHugh-Nagumo equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-FitzHugh-Nagumo-Equation-via-Extended-Physics-Informed-Neural-Network',
     demoLinkRel: 'nofollow noopener noreferrer',
