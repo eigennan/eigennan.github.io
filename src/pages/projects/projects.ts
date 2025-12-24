@@ -140,6 +140,15 @@ export const projects: Project[] = [
     coverImage: '/fn.png'
   },
   {
+    name: 'Dynamical Bestiary: 2D FitzHugh-Nagumo Equation with Spirals and Turing Patterns',
+    description: 'Python notebook for the 2D FitzHugh-Nagumo equation. Explores spiral wave solutions and Turing patterns using finite difference methods.',
+    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Fitzhugh-Nagumo-Equation-with-Turing-Patterns',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Finite Difference", "Direct Simulation"],
+    image: '/fn_pattern.png',
+    coverImage: '/fn_pattern.png'
+  },
+  {
     name: 'Dynamical Bestiary: Bratu Equation',
     description: 'Python notebook for the Bratu equation. Explores pattern formations using numerical continuation methods.',
     demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Bratu-Equation',
