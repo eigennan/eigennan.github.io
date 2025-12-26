@@ -41,33 +41,6 @@ export const projects: Project[] = [
     coverImage: '/ks_output.png'
   },
   {
-    name: 'Dynamical Bestiary: Kuramoto-Sivashinsky Equation',
-    description: 'Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods.',
-    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation',
-    demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
-    image: '/ks.png',
-    coverImage: '/ks.png'
-  },
-  {
-    name: 'Dynamical Bestiary: Swift-Hohenberg Equation',
-    description: 'Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods.',
-    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation',
-    demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
-    image: '/sh.png',
-    coverImage: '/sh.png'
-  },
-  {
-    name: 'Dynamical Bestiary: Cahn-Hilliard Equation',
-    description: 'Python notebook for the Cahn-Hilliard equation. Explores pattern formations using numerical continuation and direct simulation methods.',
-    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation',
-    demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
-    image: '/ch.png',
-    coverImage: '/ch.png'
-  },
-  {
     name: 'SciML: Burger\'s Equation via Physics Informed Neural Networks (PINN)',
     description: ' Python project that utilizes Physics Informed Neural Networks (PINN) to learn the solution operator for Burger\'s equation.',
     demoLink: 'https://github.com/eigenan/SciML-Learning-Burgers-Equation-via-Physics-Informed-Neural-Networks',
@@ -120,6 +93,33 @@ export const projects: Project[] = [
     tags: ["Python", "Machine Learning", "DeepONet"],
     image: '/diff_onet_output.png',
     coverImage: '/diff_onet_output.png'
+  },
+  {
+    name: 'Dynamical Bestiary: Kuramoto-Sivashinsky Equation',
+    description: 'Python notebook for the Kuramoto-Sivashinsky equation. Explores pattern formations using numerical continuation and direct simulation methods.',
+    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Kuramoto-Sivashinsky-Equation',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
+    image: '/ks.png',
+    coverImage: '/ks.png'
+  },
+  {
+    name: 'Dynamical Bestiary: Swift-Hohenberg Equation',
+    description: 'Python notebook for the Swift-Hohenberg equation. Explores pattern formations using numerical continuation and direct simulation methods.',
+    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Swift-Hohenberg-Equation',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
+    image: '/sh.png',
+    coverImage: '/sh.png'
+  },
+  {
+    name: 'Dynamical Bestiary: Cahn-Hilliard Equation',
+    description: 'Python notebook for the Cahn-Hilliard equation. Explores pattern formations using numerical continuation and direct simulation methods.',
+    demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Cahn-Hilliard-Equation',
+    demoLinkRel: 'nofollow noopener noreferrer',
+    tags: ["Python", "Numerical Continuation", "Direct Simulation"],
+    image: '/ch.png',
+    coverImage: '/ch.png'
   },
   {
     name: 'Dynamical Bestiary: Allen-Cahn Equation',
