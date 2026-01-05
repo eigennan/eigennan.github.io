@@ -144,7 +144,7 @@ export const projects: Project[] = [
     description: 'Python notebook for the 2D FitzHugh-Nagumo equation. Explores spiral wave solutions and Turing patterns using finite difference methods.',
     demoLink: 'https://github.com/eigenan/Dynamical-Bestiary-Fitzhugh-Nagumo-Equation-with-Turing-Patterns',
     demoLinkRel: 'nofollow noopener noreferrer',
-    tags: ["Python", "Finite Difference", "Direct Simulation"],
+    tags: ["Python", "Direct Simulation"],
     image: '/fn_pattern.png',
     coverImage: '/fn_pattern.png'
   },
