@@ -11,10 +11,9 @@ interface Props {
 const { publication } = Astro.props;
 ---
 
-<div class="group relative flex flex-col h-full rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300">
-  <div class="aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative">
+<div class="group relative flex flex-col md:flex-row overflow-hidden h-40 rounded-xl glass-panel hover:scale-[1.015] transition-all duration-300">
+  <a href={publication.paperLink} target="_blank" rel={publication.paperLinkRel} class="md:w-1/5 w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 relative aspect-video md:aspect-auto">
     {publication.coverImage && (
-      <a href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>
       <Image
         src={publication.coverImage}
         alt={publication.name}
@@ -22,30 +21,29 @@ const { publication } = Astro.props;
         width={720}
         height={360}
       />
-      </a>
     )}
     {!publication.coverImage && (
       <div class="flex h-full items-center justify-center text-zinc-400 dark:text-zinc-600">
         <span class="text-sm">No Image</span>
       </div>
     )}
-  </div>
-  <div class="flex flex-1 flex-col p-5">
+  </a>
+  <div class="relative flex flex-1 flex-col p-5 md:w-2/3 pb-16">
+    <div class="absolute top-2 right-3 text-2xl font-bold text-zinc-500/40 dark:text-zinc-400/40">
+      {publication.year}
+    </div>
     <div class="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
-      {publication.journal} - {publication.year}
+      {publication.journal}
     </div>
     <h3 class="mb-2 text-base font-bold leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
       <a href={publication.paperLink} target="_blank" rel={publication.paperLinkRel}>{publication.name}</a>
     </h3>
-    <div class="relative abstract-container">
-        <p class="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 line-clamp-3 abstract-truncated">
-        {publication.abstract}
-        </p>
-        <div class="absolute bottom-full left-0 mb-2 p-2 bg-gray-100 dark:bg-zinc-800 rounded text-xs w-full max-h-64 z-20 overflow-y-auto abstract-full" style="display: none;">
-            {publication.abstract}
-        </div>
+    <div class="text-sm text-zinc-600 dark:text-zinc-400">
+        {publication.authors?.map((author, index) => (
+            <a href={author.url} target="_blank" class="hover:underline">{author.name}</a>
+        )).reduce((prev, curr) => <>{prev}, {curr}</>)}
     </div>
-    <div class="flex justify-end gap-3 mt-auto self-end">
+    <div class="flex justify-end gap-3 absolute bottom-5 right-5">
       {publication.bibtex && <CiteButton bibtex={publication.bibtex} />}
       {
           publication.pdf &&
@@ -62,54 +60,3 @@ const { publication } = Astro.props;
     </div>
   </div>
 </div>
-<script id="publication-card-script" data-hover-enabled={HOVER_ABSTRACT_ENABLED}>
-    const HOVER_ABSTRACT_ENABLED = JSON.parse(document.getElementById('publication-card-script')?.dataset.hoverEnabled ?? 'true');
-
-    function attachAbstractListeners() {
-        if (!HOVER_ABSTRACT_ENABLED) return;
-        document.querySelectorAll('.abstract-container').forEach(container => {
-            if (container.dataset.listenerAttached) {
-                return;
-            }
-            container.dataset.listenerAttached = 'true';
-
-            const truncated = container.querySelector('.abstract-truncated');
-            const full = container.querySelector('.abstract-full');
-            let hideTimeout;
-
-            if (!truncated || !full) {
-                return;
-            }
-
-            const showFullAbstract = () => {
-                clearTimeout(hideTimeout);
-                full.style.display = 'block';
-                const fullRect = full.getBoundingClientRect();
-                if (fullRect.right > window.innerWidth) {
-                    full.style.right = '0';
-                    full.style.left = 'auto';
-                }
-                if (fullRect.left < 0) {
-                    full.style.left = '0';
-                    full.style.right = 'auto';
-                }
-            };
-
-            const hideFullAbstract = () => {
-                hideTimeout = window.setTimeout(() => {
-                    full.style.display = 'none';
-                    full.style.left = '0';
-                    full.style.right = 'auto';
-                }, 300);
-            };
-
-            truncated.addEventListener('mouseenter', showFullAbstract);
-            truncated.addEventListener('mouseleave', hideFullAbstract);
-            full.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
-            full.addEventListener('mouseleave', hideFullAbstract);
-        });
-    }
-
-    attachAbstractListeners();
-    document.addEventListener('astro:after-swap', attachAbstractListeners);
-</script>
