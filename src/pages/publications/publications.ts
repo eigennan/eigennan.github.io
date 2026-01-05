@@ -26,27 +26,27 @@ export const publications: Publications[] = [
     paperLink: 'https://arxiv.org/abs/2504.07270',
     authors: [
         {
-          name: 'Anthony Cortez',
+          name: 'A. Cortez',
           url: 'https://cse.umn.edu/math/anthony-cortez'
         },
         {
-          name: 'Nan Li',
+          name: 'N. Li',
           url: 'https://nanli.co'
         },
         {
-          name: 'Nathan Mihm',
+          name: 'N. Mihm',
           url: ''
         },
         {
-          name: 'Alice Xu',
+          name: 'A. Xu',
           url: ''
         },
         {
-          name: 'Xiaoxing Yu',
+          name: 'X. Yu',
           url: ''
         },
         {
-          name: 'Arnd Scheel',
+          name: 'A. Scheel',
           url: 'https://www.math.umn.edu/~scheel/'
         }
       ],
@@ -72,11 +72,11 @@ export const publications: Publications[] = [
     paperLink: 'https://doi.org/10.48550/arXiv.2312.07809',
     authors: [
         {
-          name: 'Nan Li',
+          name: 'N. Li',
           url: 'https://nanli.co'
         },
         {
-          name: 'Arnd Scheel',
+          name: 'A. Scheel',
           url: 'https://www.math.umn.edu/~scheel/'
         }
       ],
@@ -105,15 +105,15 @@ export const publications: Publications[] = [
     pdf: '/ccis.pdf',
     authors: [
         {
-            name: 'Michael A. Hill',
+            name: 'M. Hill',
             url: 'https://mikehill.math.umn.edu'
         },
         {
-            name: 'Jiayun Meng',
+            name: 'J. Meng',
             url: ''
         },
         {
-            name: 'Nan Li',
+            name: 'N. Li',
             url: 'https://nanli.co'
         }
       ],
