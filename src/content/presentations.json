@@ -1,0 +1,33 @@
+[
+  {
+    "id": "anchored-spirals-theta-model",
+    "title": "Anchored spirals in the theta model",
+    "type": "talk",
+    "pdf": "/doc/nwcs26.pdf",
+    "venues": [
+      {
+        "event": "SIAM Conference on Nonlinear Waves and Coherent Structures",
+        "location": "Montréal QC, Canada",
+        "year": 2026
+      }
+    ]
+  },
+  {
+    "id": "anchored-spirals-sharp-interface-phase-oscillator",
+    "title": "Anchored spirals in sharp-interface and phase oscillator models",
+    "type": "poster",
+    "pdf": "/doc/ds25-poster.pdf",
+    "venues": [
+      {
+        "event": "SIAM Conference on Applications of Dynamical Systems",
+        "location": "Denver CO",
+        "year": 2025
+      },
+      {
+        "event": "Joint Alabama-Florida Conference on Differential Equations, Dynamical Systems and Applications",
+        "location": "Birmingham AL",
+        "year": 2025
+      }
+    ]
+  }
+]

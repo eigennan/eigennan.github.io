@@ -80,10 +80,10 @@ const recentPostsMetadata = await Promise.all(
     )}
 
   {selectedPublications.length > 0 && (
-      <Section title="Selected publications" moreLink="/publications">
+      <Section title="Selected publications" moreLink="/research">
         <CardGroup class="selected-publications">
           {selectedPublications.map((pub) => (
-            <PubCard pub={pub} filterableTags={false} />
+            <PubCard pub={pub} />
           ))}
         </CardGroup>
       </Section>

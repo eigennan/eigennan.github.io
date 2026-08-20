@@ -1,56 +1,66 @@
 [
   {
-    "id": "digital-society-2025",
-    "category": "research",
-    "title": "Research Fellow",
-    "org": "Center for Digital Society, Example University",
-    "orgUrl": "https://example.edu/research/digital-society",
-    "startDate": "2025-09",
-    "location": "Example City",
-    "description": "Studies how automated systems shape access to public information, with an emphasis on transparent evaluation and reproducible research."
-  },
-  {
-    "id": "open-methods-2024",
-    "category": "research",
-    "title": "Graduate Research Assistant",
-    "org": "Open Methods Lab, Example University",
-    "orgUrl": "https://example.edu/research/open-methods",
-    "startDate": "2024-01",
-    "endDate": "2025-08",
-    "location": "Example City",
-    "description": "Built documented data pipelines and evaluation tools for collaborative computational social science projects."
-  },
-  {
-    "id": "civic-data-2023",
-    "category": "research",
-    "title": "Data Science Research Intern",
-    "org": "Civic Data Collaborative",
-    "orgUrl": "https://research.example.org/civic-data",
-    "startDate": "2023-06",
-    "endDate": "2023-09",
-    "location": "Remote",
-    "description": "Developed quality checks for public datasets and contributed reproducible notebooks to an open research toolkit."
-  },
-  {
-    "id": "responsible-computing-2024",
+    "id": "ta-math-3592h-s26",
     "category": "teaching",
-    "title": "Teaching Assistant, Responsible Computing",
-    "org": "Example University",
-    "orgUrl": "https://example.edu",
-    "startDate": "2024-09",
-    "endDate": "2025-05",
-    "location": "Example City",
-    "description": "Led discussion sections on data ethics, algorithmic accountability, and communicating uncertainty."
+    "title": "Teaching Assistant, MATH 3592H: Honors Mathematics II",
+    "org": "University of Minnesota",
+    "startDate": "2026-01",
+    "endDate": "2026-05"
   },
   {
-    "id": "example-university-2024",
-    "category": "education",
-    "title": "M.S. in Computational Social Science",
-    "org": "Example University",
-    "orgUrl": "https://example.edu",
+    "id": "ta-math-3592h-f25",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 3592H: Honors Mathematics I",
+    "org": "University of Minnesota",
+    "startDate": "2025-09",
+    "endDate": "2025-12"
+  },
+  {
+    "id": "ta-math-2374-s25",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 2374: Multivariable Calculus",
+    "org": "University of Minnesota",
+    "startDate": "2025-01",
+    "endDate": "2025-05"
+  },
+  {
+    "id": "ta-math-2374-f24",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 2374: Multivariable Calculus",
+    "org": "University of Minnesota",
+    "startDate": "2024-09",
+    "endDate": "2024-12"
+  },
+  {
+    "id": "ta-math-2373-s24",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 2373: Linear Algebra and Differential Equations",
+    "org": "University of Minnesota",
+    "startDate": "2024-01",
+    "endDate": "2024-05"
+  },
+  {
+    "id": "ta-math-2373-f23",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 2373: Linear Algebra and Differential Equations",
+    "org": "University of Minnesota",
+    "startDate": "2023-09",
+    "endDate": "2023-12"
+  },
+  {
+    "id": "ta-math-1031-s23",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 1031: College Algebra & Probability",
+    "org": "University of Minnesota",
+    "startDate": "2023-01",
+    "endDate": "2023-05"
+  },
+  {
+    "id": "ta-math-1271-f22",
+    "category": "teaching",
+    "title": "Teaching Assistant, MATH 1271: Calculus I",
+    "org": "University of Minnesota",
     "startDate": "2022-09",
-    "endDate": "2024-05",
-    "location": "Example City",
-    "description": "Coursework included statistical modeling, machine learning, research design, and data visualization."
+    "endDate": "2022-12"
   }
 ]

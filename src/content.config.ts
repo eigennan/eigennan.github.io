@@ -116,4 +116,29 @@ const experience = defineCollection({
   }),
 })
 
-export const collections = { blog, experience, people, projects, updates }
+const presentations = defineCollection({
+  loader: file("./src/content/presentations.json"),
+  schema: z.object({
+    title: z.string(),
+    type: z.enum(["talk", "poster"]).default("talk"),
+    pdf: z.string().optional(),
+    venues: z
+      .array(
+        z.object({
+          event: z.string(),
+          location: z.string().optional(),
+          year: z.number(),
+        }),
+      )
+      .min(1),
+  }),
+})
+
+export const collections = {
+  blog,
+  experience,
+  people,
+  presentations,
+  projects,
+  updates,
+}

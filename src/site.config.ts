@@ -7,11 +7,11 @@ import type {
 } from "@/types"
 
 export const SITE: SiteConfig = {
-  title: "Astro Scholar",
+  title: "Nan Li",
   description:
-    "Research in computational social science, open methods, and responsible computing.",
-  href: "https://astro-scholar.pages.dev",
-  author: "Alex Morgan",
+    "Dynamical systems, pattern formation, dynamics of PDEs, and nonlinear waves.",
+  href: "https://nanli.co",
+  author: "Nan Li",
   dir: "ltr",
   defaultPageImage: "/img/social-preview.png",
   defaultPostImage: "/img/social-preview.png",
@@ -34,7 +34,7 @@ export const SITE: SiteConfig = {
   },
 
   home: {
-    careerHighlightCount: 4,
+    careerHighlightCount: 0,
     updateCount: 3,
     publicationCount: 3,
   },
@@ -51,30 +51,30 @@ export const SITE: SiteConfig = {
 
 export const PROFILE: ProfileConfig = {
   name: SITE.title,
-  tagline: "Computational social scientist and open-methods",
-  email: "alex@example.edu",
-  location: "Example City",
-  pronouns: "they/them",
+  tagline: "University of Minnesota",
+  email: "li002843@umn.edu",
   links: {
-    github: "https://github.com/mychiffonn/astro-scholar",
-    website: "https://mychiffonn.com/",
+    github: "https://github.com/eigenan",
+    linkedin: "https://www.linkedin.com/in/eigenan/",
+    cv: "/doc/short_cv.pdf",
+    googleScholar: "https://scholar.google.com/citations?user=9E-qGccAAAAJ",
   },
   // where the links above show up. true = that section's default set, false or
   // [] = none, or list keys in the order you want them. The header renders its
   // set as bare icons, so it defaults to a handful rather than everything.
   linksPlacement: {
-    header: ["email", "github"],
+    header: ["email", "github", "linkedin", "cv", "googleScholar"],
     about: false,
     footer: true,
   },
 }
 
 export const NAV_LINKS: LinkConfig[] = [
-  { href: "/projects", label: "Projects" },
-  { href: "/publications", label: "Publications" },
+  // { href: "/projects", label: "Projects" },
+  { href: "/research", label: "Research" },
   { href: "/blog", label: "Blog" },
-  { href: "/uses", label: "Tech" },
-  { href: "/now", label: "Now" },
+  // { href: "/uses", label: "Tech" },
+  // { href: "/now", label: "Now" },
 ]
 
 export const NAVIGATION: LinkConfig[] = NAV_LINKS.map(({ href, label }) => ({
@@ -86,9 +86,8 @@ export const PUB_CONFIG: PublicationConfig = {
   maxFirstAuthors: 6,
   maxLastAuthors: 1,
   highlightAuthor: {
-    firstName: "Alex",
-    lastName: "Morgan",
-    aliases: ["A. Morgan"],
+    firstName: "Nan",
+    lastName: "Li",
   },
   equalSymbols: {
     first: "*",

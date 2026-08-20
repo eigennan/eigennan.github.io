@@ -16,6 +16,8 @@ interface Props {
   section?: string
 }
 
+const googleAnalyticsId = import.meta.env.PUBLIC_GOOGLE_MEASUREMENT_ID
+
 const {
   title,
   description = SITE.description,
@@ -146,12 +148,12 @@ const structuredData = {
 
   <meta
     name="theme-color"
-    content="#15151f"
+    content="#0e141f"
     media="(prefers-color-scheme: dark)"
   >
   <meta
     name="theme-color"
-    content="#eff1f5"
+    content="#f9f5eb"
     media="(prefers-color-scheme: light)"
   >
   <meta name="color-scheme" content="light dark">
@@ -178,6 +180,20 @@ const structuredData = {
     title={SITE.title}
     href={`${SITE.href}rss.xml`}
   >
+
+  {googleAnalyticsId && (
+    <>
+      <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}></script>
+      <script is:inline define:vars={{ googleAnalyticsId }}>
+        window.dataLayer = window.dataLayer || []
+        function gtag() {
+          dataLayer.push(arguments)
+        }
+        gtag("js", new Date())
+        gtag("config", googleAnalyticsId)
+      </script>
+    </>
+  )}
 
   <ClientRouter />
   <script is:inline define:vars={{ siteLocale: SITE.locale.lang }}>

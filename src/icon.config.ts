@@ -171,7 +171,7 @@ export const PUBLICATION_LINK_TYPES = {
 
   // Presentation & discussion
   post: { label: "Post", iconName: "mingcute:pen-line" },
-  poster: { label: "Poster", iconName: "mingcute:image-line" },
+  poster: { label: "Poster", iconName: "mingcute:pic-line" },
   slides: { label: "Slides", iconName: "mingcute:presentation-line" },
   talk: { label: "Talk", iconName: "mingcute:mic-line" },
   thread: { label: "Thread", iconName: "mingcute:comment-line" },

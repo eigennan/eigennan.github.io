@@ -1,0 +1,77 @@
+---
+import type { CollectionEntry } from "astro:content"
+
+import { PUBLICATION_LINK_TYPES } from "@/icon.config"
+import Badge from "@/components/base/Badge.astro"
+import Icon from "@/components/base/Icon.astro"
+import Link from "@/components/base/Link.astro"
+
+import Timeline from "@/components/timeline/Timeline.astro"
+import TimelineDate from "@/components/timeline/TimelineDate.astro"
+import TimelineItem from "@/components/timeline/TimelineItem.astro"
+
+interface Props {
+  entries: CollectionEntry<"presentations">[]
+}
+
+const { entries } = Astro.props
+
+const rows = entries
+  .flatMap((entry) =>
+    entry.data.venues.map((venue) => ({
+      title: entry.data.title,
+      type: entry.data.type,
+      pdf: entry.data.pdf,
+      ...venue,
+    })),
+  )
+  .sort((a, b) => b.year - a.year)
+---
+
+<Timeline>
+  {rows.map((row) => (
+    <TimelineItem>
+      <TimelineDate slot="date">{row.year}</TimelineDate>
+      <p class="presentation-title">
+        {row.pdf ? (
+          <Link href={row.pdf} external underline>
+            {row.title}
+          </Link>
+        ) : (
+          <span>{row.title}</span>
+        )}
+        <Badge variant="outline" class="presentation-type">
+          <Icon name={PUBLICATION_LINK_TYPES[row.type].iconName} />
+          {PUBLICATION_LINK_TYPES[row.type].label}
+        </Badge>
+      </p>
+      <p class="presentation-venue">
+        {row.event}
+        {row.location && <span> · {row.location}</span>}
+      </p>
+    </TimelineItem>
+  ))}
+</Timeline>
+
+<style>
+  .presentation-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3xs) var(--space-2xs);
+    font-size: var(--step--1);
+    line-height: calc(var(--leading-offset) + 1em);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .presentation-type {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .presentation-venue {
+    margin-block-start: var(--space-3xs);
+    color: var(--muted-foreground);
+    font-size: var(--step--1);
+    line-height: calc(var(--leading-offset) + 1em);
+  }
+</style>
