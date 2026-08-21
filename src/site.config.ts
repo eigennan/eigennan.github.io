@@ -98,10 +98,10 @@ export const PUB_CONFIG: PublicationConfig = {
 }
 
 export const FOOTER: FooterConfig = {
-  credits: true,
-  sourceCode: "https://github.com/mychiffonn/astro-scholar",
-  sourceContent:
-    "https://github.com/mychiffonn/astro-scholar/tree/main/src/content",
+  credits: false,
+  // sourceCode: "https://github.com/mychiffonn/astro-scholar",
+  // sourceContent:
+  //   "https://github.com/mychiffonn/astro-scholar/tree/main/src/content",
   footerLinks: [],
 }
 
