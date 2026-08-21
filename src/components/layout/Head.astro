@@ -2,6 +2,7 @@
 import { ClientRouter } from "astro:transitions"
 
 import { PROFILE, SITE } from "@site-config"
+import type { BreadcrumbItem } from "@/components/layout/Breadcrumbs.astro"
 
 interface Props {
   title?: string
@@ -14,6 +15,7 @@ interface Props {
   author?: string
   tags?: string[]
   section?: string
+  breadcrumbs?: BreadcrumbItem[]
 }
 
 const googleAnalyticsId = import.meta.env.PUBLIC_GOOGLE_MEASUREMENT_ID
@@ -29,6 +31,7 @@ const {
   author,
   tags = [],
   section,
+  breadcrumbs,
 } = Astro.props
 
 // SEO title optimization
@@ -38,9 +41,17 @@ const fullTitle = title
     : `${title} - ${SITE.title} - ${PROFILE.tagline}`
   : `${SITE.title} - ${PROFILE.tagline}`
 
-// Trim title to approximately 60 characters for SEO
-const seoTitle =
-  fullTitle.length > 60 ? fullTitle.substring(0, 57) + "..." : fullTitle
+// Trim title to approximately 60 characters for SEO, breaking on a word
+// boundary so the last word isn't sliced in half.
+const seoTitle = (() => {
+  if (fullTitle.length <= 60) return fullTitle
+  const clipped = fullTitle.slice(0, 57)
+  const lastSpace = clipped.lastIndexOf(" ")
+  const trimmed = (lastSpace > 0 ? clipped.slice(0, lastSpace) : clipped)
+    // drop a dangling connector/punctuation so it doesn't read "... Waves &…"
+    .replace(/[\s\-–—&,:;.]+$/, "")
+  return `${trimmed}…`
+})()
 
 const socialImage = (() => {
   // 1. If no image, use configured page/post preview image
@@ -65,40 +76,135 @@ const socialImage = (() => {
   }
 })()
 
-// Canonical URL optimization
-const canonicalURL = Astro.site?.toString() || SITE.href
+// Canonical URL. Must include the current path: a site-root-only value makes
+// every page self-canonicalize to "/", which asks Google to drop them all.
+const canonicalURL = new URL(
+  Astro.url.pathname,
+  Astro.site ?? SITE.href,
+).toString()
 
-// JSON-LD structured data for better SEO
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": type === "article" ? "BlogPosting" : "WebSite",
+// The research vocabulary this site wants to be discoverable for. Kept in one
+// ordered list so meta, prose, and structured data all agree; consistent
+// repetition of the same entity terms is what links them to the name.
+const KNOWS_ABOUT = [
+  "Applied mathematics",
+  "Dynamical systems",
+  "Nonlinear waves",
+  "Coherent structures",
+  "Spiral waves",
+  "Pattern formation",
+  "Dynamics of PDEs",
+  "Partial differential equations",
+  "Geometric flows",
+  "Curvature flow",
+  "Reaction-diffusion systems",
+  "Numerical methods",
+  "Numerical continuation",
+  "Mathematical biology",
+  "Computational biology",
+  "Mathematical neuroscience",
+  "Computational neuroscience",
+  "Equivariant homotopy theory",
+]
+
+// PROFILE.links values are either a bare URL string or { href }. Only absolute
+// URLs belong in sameAs -- it asserts "this is the same entity elsewhere", so a
+// local path like /doc/short_cv.pdf would be meaningless to a consumer.
+const sameAs = Object.values(PROFILE.links ?? {})
+  .map((link) => (typeof link === "string" ? link : link?.href))
+  .filter((href): href is string => Boolean(href?.startsWith("http")))
+
+const personId = new URL("#person", SITE.href).toString()
+
+const person = {
+  "@type": "Person",
+  "@id": personId,
+  name: PROFILE.name,
+  url: SITE.href,
+  jobTitle: "Ph.D. Candidate in Mathematics",
+  description: SITE.description,
+  affiliation: {
+    "@type": "CollegeOrUniversity",
+    name: "University of Minnesota",
+    url: "https://twin-cities.umn.edu/",
+  },
+  alumniOf: {
+    "@type": "CollegeOrUniversity",
+    name: "University of California, Los Angeles",
+    url: "https://www.ucla.edu/",
+  },
+  knowsAbout: KNOWS_ABOUT,
+  ...(PROFILE.email && { email: PROFILE.email }),
+  ...(sameAs.length > 0 && { sameAs }),
+}
+
+// The homepage is a profile of a person; articles are BlogPosting; everything
+// else is a WebPage. (WebSite describes the site as a whole, not a subpage.)
+const isHome = new URL(canonicalURL).pathname === "/"
+const pageType =
+  type === "article" ? "BlogPosting" : isHome ? "ProfilePage" : "WebPage"
+
+const pageEntity = {
+  "@type": pageType,
+  "@id": canonicalURL,
   name: seoTitle,
   description: description,
   url: canonicalURL,
   image: socialImage?.toString(),
-  author: author
-    ? {
-        "@type": "Person",
-        name: author,
-        ...(PROFILE.email && { email: PROFILE.email }),
-      }
-    : {
-        "@type": "Person",
-        name: SITE.author || SITE.title,
-        ...(PROFILE.email && { email: PROFILE.email }),
-      },
-  publisher: {
-    "@type": "Person",
+  inLanguage: SITE.locale.lang,
+  isPartOf: {
+    "@type": "WebSite",
+    "@id": new URL("#website", SITE.href).toString(),
     name: SITE.title,
-    logo: {
-      "@type": "ImageObject",
-      url: new URL("/web-app-manifest-512x512.png", Astro.site).toString(),
-    },
+    url: SITE.href,
   },
+  // ProfilePage describes its subject; the others were authored by them.
+  ...(pageType === "ProfilePage"
+    ? { mainEntity: { "@id": personId } }
+    : {
+        author: author
+          ? { "@type": "Person", name: author }
+          : { "@id": personId },
+      }),
+  ...(pageType !== "ProfilePage" && { publisher: { "@id": personId } }),
   ...(publishedTime && { datePublished: publishedTime.toISOString() }),
   ...(modifiedTime && { dateModified: modifiedTime.toISOString() }),
   ...(type === "article" && section && { articleSection: section }),
   ...(tags.length > 0 && { keywords: tags.join(", ") }),
+}
+
+// Breadcrumbs are rendered visibly by Breadcrumbs.astro but had no markup
+// behind them. Position is 1-based and includes the implicit Home crumb.
+const breadcrumbEntity =
+  breadcrumbs && breadcrumbs.length > 0
+    ? {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: SITE.href,
+          },
+          ...breadcrumbs.map((crumb, index) => ({
+            "@type": "ListItem",
+            position: index + 2,
+            name: crumb.label,
+            ...(crumb.href && {
+              item: new URL(crumb.href, SITE.href).toString(),
+            }),
+          })),
+        ],
+      }
+    : null
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    person,
+    pageEntity,
+    ...(breadcrumbEntity ? [breadcrumbEntity] : []),
+  ],
 }
 ---
 
@@ -178,7 +284,7 @@ const structuredData = {
     rel="alternate"
     type="application/rss+xml"
     title={SITE.title}
-    href={`${SITE.href}rss.xml`}
+    href={new URL("rss.xml", SITE.href).href}
   >
 
   {googleAnalyticsId && (

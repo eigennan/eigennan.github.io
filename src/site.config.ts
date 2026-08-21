@@ -9,7 +9,7 @@ import type {
 export const SITE: SiteConfig = {
   title: "Nan Li",
   description:
-    "Dynamical systems, pattern formation, dynamics of PDEs, and nonlinear waves.",
+    "Applied mathematician at the University of Minnesota working on dynamical systems, nonlinear waves, pattern formation, and PDE models in mathematical biology.",
   href: "https://nanli.co",
   author: "Nan Li",
   dir: "ltr",
@@ -52,6 +52,8 @@ export const SITE: SiteConfig = {
 export const PROFILE: ProfileConfig = {
   name: SITE.title,
   tagline: "University of Minnesota",
+  researchInterests:
+    "Dynamics of ordinary and partial differential equations, nonlinear waves, pattern formation",
   email: "li002843@umn.edu",
   links: {
     github: "https://github.com/eigenan",

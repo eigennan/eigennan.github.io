@@ -36,15 +36,82 @@ const equalContributionNote = [
 ].join(". ")
 
 const presentations = await getCollection("presentations")
+
+// ScholarlyArticle markup for each publication. The loader already parses
+// authors, abstracts, and identifiers; the cards only ever render a subset,
+// so this is the only place a crawler can see the full record.
+const stripHtml = (value: string) =>
+  value
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/,\s*$/, "")
+    .trim()
+
+const publicationSchema = {
+  "@context": "https://schema.org",
+  "@graph": allPublicationsFlat.map((pub) => {
+    const url = pub.mainUrl ?? ""
+    const arxiv = url.match(/arxiv\.org\/abs\/([^\s/?#]+)/i)?.[1]
+    const doi = url.match(/doi\.org\/(.+)$/i)?.[1]
+
+    return {
+      "@type": "ScholarlyArticle",
+      headline: pub.title,
+      name: pub.title,
+      author: [
+        stripHtml(pub.authorData.displayFirstAuthors),
+        pub.authorData.hasMore ? stripHtml(pub.authorData.hiddenAuthors) : "",
+        stripHtml(pub.authorData.displayLastAuthors ?? ""),
+      ]
+        .filter(Boolean)
+        .join(", ")
+        .split(/,\s*/)
+        .filter(Boolean)
+        .map((name) => ({ "@type": "Person", name })),
+      ...(pub.year && { datePublished: pub.year.toString() }),
+      ...(pub.publisher && {
+        publisher: { "@type": "Organization", name: pub.publisher },
+        isPartOf: { "@type": "Periodical", name: pub.publisher },
+      }),
+      ...(pub.abstract && { abstract: stripHtml(pub.abstract) }),
+      ...(pub.keywords.length > 0 && { keywords: pub.keywords.join(", ") }),
+      ...(url && { url }),
+      ...(doi
+        ? {
+            identifier: {
+              "@type": "PropertyValue",
+              propertyID: "DOI",
+              value: doi,
+            },
+          }
+        : arxiv
+          ? {
+              identifier: {
+                "@type": "PropertyValue",
+                propertyID: "arXiv",
+                value: arxiv.replace(/v\d+$/, ""),
+              },
+            }
+          : {}),
+    }
+  }),
+}
 ---
 
 <CommonLayout
   title="Research"
-  description="Publications, preprints and presentations"
+  description="Publications, preprints, and conference presentations on spiral waves, pattern formation, geometric flows, and reaction-diffusion systems."
   breadcrumbs={[{ label: "Research", icon: "research" }]}
   prose={false}
   celestial
 >
+  <script
+    slot="head"
+    is:inline
+    type="application/ld+json"
+    set:html={JSON.stringify(publicationSchema)}
+  />
+
   {ggScholarUrl && (
       <p class="publication-intro">
         See my full publication list on{" "}

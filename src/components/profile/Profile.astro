@@ -69,6 +69,15 @@ const aboutLinks = getProfileLinkPlacement("about")
             />
           )}
       </div>
+
+      {profile.researchInterests && (
+          <p class="profile-research">
+            <span class="profile-research-label">Research interests:</span>{" "}
+            {Array.isArray(profile.researchInterests)
+              ? profile.researchInterests.join(", ")
+              : profile.researchInterests}
+          </p>
+        )}
     </div>
   </header>
 </article>
@@ -142,6 +151,17 @@ const aboutLinks = getProfileLinkPlacement("about")
   .profile-othernames {
     color: var(--muted-foreground);
     font-size: var(--step--1);
+  }
+
+  /* Sits after .profile-meta inside the .profile-content grid, so the
+     --space-xs row gap already separates it from the contact row. */
+  .profile-research {
+    color: var(--muted-foreground);
+    font-size: var(--step--1);
+  }
+
+  .profile-research-label {
+    font-weight: var(--font-weight-medium);
   }
 
   .profile-tagline {

@@ -11,8 +11,11 @@ import type { ProfileLinkType } from "@icon-config"
 export const SiteConfigSchema = z.object({
   /** Site metadata */
   title: z.string(),
-  /** To be used as meta description or description tag in head. <= 100 characters */
-  description: z.string().max(100),
+  /**
+   * To be used as meta description or description tag in head.
+   * <= 160 characters, the width Google renders before truncating.
+   */
+  description: z.string().max(160),
   href: z.url(),
   author: z.string(),
   dir: z.enum(["ltr", "rtl"]).default("ltr"),
@@ -174,6 +177,11 @@ export const ProfileConfigSchema = z.object({
    * Max 50 characters
    */
   tagline: z.string().max(50),
+  /**
+   * Research areas shown as a single line under the profile header.
+   * A string is used verbatim; an array is joined with ", ".
+   */
+  researchInterests: z.string().or(z.array(z.string())).optional(),
   /** required: Main email address */
   email: z.email(),
   /** optional: Geographic location (city, state, country) */
