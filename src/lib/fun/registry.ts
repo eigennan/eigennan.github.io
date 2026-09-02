@@ -20,8 +20,7 @@ export interface FunGroup {
 export const FUN_GROUPS: FunGroup[] = [
   {
     title: "Vectors and space",
-    blurb:
-      "Arrows, the two ways of multiplying them, and the coordinate systems that give every point a name.",
+    blurb: "",
     apps: [
       {
         slug: "dot-product",
@@ -63,8 +62,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Surfaces and contours",
-    blurb:
-      "A function of two variables is a landscape. These draw the map, name the shapes, and zoom in until it flattens.",
+    blurb: "",
     apps: [
       {
         slug: "contour-maps",
@@ -106,7 +104,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Gradients and optimization",
-    blurb: "Which way is uphill, how far can you get, and where does it stop.",
+    blurb: "",
     apps: [
       {
         slug: "steepest-ascent",
@@ -157,8 +155,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Curves and motion",
-    blurb:
-      "A point moving through space, and everything its path knows about itself.",
+    blurb: "",
     apps: [
       {
         slug: "moving-frame",
@@ -191,8 +188,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Vector fields and flow",
-    blurb:
-      "Attach an arrow to every point of space, then walk through it and add up what you feel.",
+    blurb: "",
     apps: [
       {
         slug: "vector-fields",
@@ -234,8 +230,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Integration and change of variables",
-    blurb:
-      "Adding up infinitely many infinitesimal pieces, and the bookkeeping that decides how hard it is.",
+    blurb: "",
     apps: [
       {
         slug: "order-of-integration",
@@ -304,8 +299,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Flux and the big theorems",
-    blurb:
-      "Four statements that all say the same thing: what happens inside a region is completely determined by what crosses its edge.",
+    blurb: "",
     apps: [
       {
         slug: "greens-theorem",
@@ -347,8 +341,7 @@ export const FUN_GROUPS: FunGroup[] = [
   },
   {
     title: "Diagrams",
-    blurb:
-      "Two pictures that are less about motion and more about seeing how the pieces fit together.",
+    blurb: "",
     apps: [
       {
         slug: "chain-rule-tree",

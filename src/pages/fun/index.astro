@@ -26,7 +26,7 @@ const total = groups.reduce((sum, group) => sum + group.apps.length, 0)
 
 <CommonLayout
   title="Fun"
-  description={`${total} interactive toys for the parts of multivariable calculus that a still picture can't show. Everything runs in the browser, on a phone or a laptop.`}
+  description={`${total} interactive toys for the parts of multivariable calculus that a still picture can't show.`}
   prose={false}
   breadcrumbs={[{ label: "Fun", icon: "mingcute:sparkles-line" }]}
 >
@@ -95,7 +95,7 @@ const total = groups.reduce((sum, group) => sum + group.apps.length, 0)
       <section data-fun-group>
         <div class="fun-group-head">
           <h2>{group.title}</h2>
-          <p>{group.blurb}</p>
+          {group.blurb && <p>{group.blurb}</p>}
         </div>
         <CardGroup columns={2}>
           {group.apps.map((app) => (
