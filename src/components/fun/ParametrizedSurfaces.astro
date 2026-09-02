@@ -1,0 +1,660 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const surfaces = [
+  { value: "sphere", label: "Sphere" },
+  { value: "torus", label: "Torus" },
+  { value: "cylinder", label: "Cylinder" },
+  { value: "helicoid", label: "Helicoid" },
+  { value: "dome", label: "Dome (graph of a function)" },
+  { value: "mobius", label: "Möbius band" },
+]
+---
+
+<FunStage
+  slug="parametrized-surfaces"
+  dual
+  flatFirst
+  splitRatio="1 / 1"
+  label="A rectangle in the uv-plane with a small highlighted patch."
+  label3d="The surface that rectangle maps to, carrying its coordinate-curve grid, with the patch's image highlighted and the two tangent vectors and the normal drawn on it."
+>
+  <Fragment slot="controls">
+    <FunSelect name="surface" label="Surface" options={surfaces} />
+    <FunSlider
+      name="u"
+      label="u"
+      min={0}
+      max={1000}
+      step={1}
+      value={830}
+      display="0.83"
+    />
+    <FunSlider
+      name="v"
+      label="v"
+      min={0}
+      max={1000}
+      step={1}
+      value={430}
+      display="0.43"
+    />
+    <FunSlider
+      name="size"
+      label="Patch size"
+      min={2}
+      max={40}
+      step={1}
+      value={22}
+      display="0.22"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="grid" label="Coordinate curves" pressed />
+      <FunToggle name="spin" label="Spin" />
+    </div>
+    <ul class="fun-legend">
+      <li>
+        <span class="fun-legend-swatch" data-tone="destructive"></span>
+        <strong>r<sub>u</sub></strong>&nbsp;— move along u, hold v fixed
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="accent"></span>
+        <strong>r<sub>v</sub></strong>&nbsp;— move along v, hold u fixed
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="primary"></span>
+        <strong>r<sub>u</sub> × r<sub>v</sub></strong>&nbsp;— the normal
+      </li>
+    </ul>
+    <FunReadout
+      rows={[
+        { name: "element", label: "|rᵤ × rᵥ| here" },
+        { name: "measured", label: "patch area ÷ Δu Δv" },
+        { name: "total", label: "area of the whole surface" },
+      ]}
+    />
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A surface is a sheet of rubber. The rectangle on the left is the sheet
+      before you bend it, ruled into identical squares; the shape on the right
+      is where each of those squares ends up. Every point of the surface has an
+      address <strong>(u, v)</strong> back on the flat rectangle.
+    </p>
+    <p>
+      Hold <strong>v</strong> fixed and let <strong>u</strong> run: you trace
+      one of the curves drawn on the surface, and its velocity is
+      <strong>r<sub>u</sub></strong>. Hold u fixed instead and you get
+      <strong>r<sub>v</sub></strong>. Those two vectors are tangent to the
+      surface, so together they span the tangent plane — and their cross product
+      is perpendicular to it. That's where the normal comes from; you never have
+      to guess it.
+    </p>
+    <p>
+      The cross product's <em>length</em> is the other half of the story. A tiny
+      rectangle du by dv on the flat sheet lands as a tiny parallelogram with
+      sides r<sub>u</sub>
+      du and r<sub>v</sub>
+      dv, and the area of a parallelogram is the length of the cross product of
+      its sides. So
+      <strong>dS = |r<sub>u</sub> × r<sub>v</sub>| du dv</strong>
+      — the sheet stretches by exactly that factor, and any integral over the
+      surface has to pay it.
+    </p>
+    <p>
+      The two numbers in the panel are that claim, checked. One is |r<sub
+        >u</sub
+      >
+      × r<sub>v</sub>| at the patch's centre; the other is the patch's honest
+      area divided by the du dv it came from. Shrink the patch and they meet. It
+      is the same argument as the Jacobian, one dimension up — and on the sphere
+      it is why the coordinate squares near the poles collapse to slivers while
+      the ones at the equator stay fat.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import type * as ThreeNamespace from "three"
+
+  import { arrowField } from "@/lib/fun/arrows3d"
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { clamp, fmt, lerp } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import {
+    type Domain,
+    type Surface,
+    type Vec3,
+    boundsOf,
+    normalVector,
+    norm3,
+    patchArea,
+    parametricMesh,
+    sampleSurface,
+    tangentU,
+    tangentV,
+    unit3,
+  } from "@/lib/fun/surface3d"
+  import { alpha } from "@/lib/fun/theme"
+
+  interface Preset {
+    r: Surface
+    domain: Domain
+    /** Label for the u and v axes on the flat panel. */
+    axes: [string, string]
+  }
+
+  const TAU = Math.PI * 2
+
+  const PRESETS: Record<string, Preset> = {
+    sphere: {
+      r: (u, v) => [
+        Math.sin(v) * Math.cos(u),
+        Math.sin(v) * Math.sin(u),
+        Math.cos(v),
+      ],
+      domain: { uMin: 0, uMax: TAU, vMin: 0, vMax: Math.PI },
+      axes: ["θ", "φ"],
+    },
+    torus: {
+      r: (u, v) => [
+        (1.6 + 0.62 * Math.cos(v)) * Math.cos(u),
+        (1.6 + 0.62 * Math.cos(v)) * Math.sin(u),
+        0.62 * Math.sin(v),
+      ],
+      domain: { uMin: 0, uMax: TAU, vMin: 0, vMax: TAU },
+      axes: ["u", "v"],
+    },
+    cylinder: {
+      r: (u, v) => [Math.cos(u), Math.sin(u), v],
+      domain: { uMin: 0, uMax: TAU, vMin: -1.4, vMax: 1.4 },
+      axes: ["θ", "z"],
+    },
+    helicoid: {
+      r: (u, v) => [v * Math.cos(u), v * Math.sin(u), 0.42 * u],
+      domain: { uMin: 0, uMax: 2.4 * Math.PI, vMin: 0.05, vMax: 1.5 },
+      axes: ["u", "v"],
+    },
+    dome: {
+      r: (u, v) => [u, v, 1.5 - 0.42 * (u * u + v * v)],
+      domain: { uMin: -1.7, uMax: 1.7, vMin: -1.7, vMax: 1.7 },
+      axes: ["x", "y"],
+    },
+    mobius: {
+      r: (u, v) => [
+        (1.4 + v * Math.cos(u / 2)) * Math.cos(u),
+        (1.4 + v * Math.cos(u / 2)) * Math.sin(u),
+        v * Math.sin(u / 2),
+      ],
+      domain: { uMin: 0, uMax: TAU, vMin: -0.45, vMax: 0.45 },
+      axes: ["u", "v"],
+    },
+  }
+
+  const MESH_U = 96
+  const MESH_V = 48
+  const GRID_LINES = 12
+
+  registerFunApp('[data-fun-app="parametrized-surfaces"]', (root) => {
+    const flatCanvas =
+      root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const glCanvas = root.querySelector<HTMLCanvasElement>(
+      "[data-fun-canvas-3d]",
+    )
+    const maybeContext = flatCanvas?.getContext("2d")
+    if (!flatCanvas || !glCanvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    let stage: Scene3DHandle | null = null
+    let patchGroup: ThreeNamespace.Group | null = null
+    let disposed = false
+
+    const redraw = () => {
+      app?.redraw()
+      stage?.redraw()
+    }
+
+    const surface = bindSelect(root, "surface", () => {
+      if (stage) {
+        aimCamera(stage)
+        rebuild()
+      }
+      update()
+    })
+    const uSlider = bindSlider(root, "u", { format: fraction, onInput: update })
+    const vSlider = bindSlider(root, "v", { format: fraction, onInput: update })
+    const sizeSlider = bindSlider(root, "size", {
+      format: (value) => (value / 100).toFixed(2),
+      onInput: update,
+    })
+    const showGrid = bindToggle(root, "grid", () => {
+      rebuild()
+      redraw()
+    })
+    const spin = bindToggle(root, "spin", (on) => {
+      stage?.setAnimating(on)
+      redraw()
+    })
+
+    function fraction(value: number) {
+      return (value / 1000).toFixed(2)
+    }
+
+    const current = () => PRESETS[surface.value] ?? PRESETS.sphere
+
+    /** The patch's domain, clamped so it never spills past the rectangle. */
+    function patchDomain(): Domain {
+      const { domain } = current()
+      const spanU = domain.uMax - domain.uMin
+      const spanV = domain.vMax - domain.vMin
+      const du = (sizeSlider.value / 100) * spanU * 0.5
+      const dv = (sizeSlider.value / 100) * spanV * 0.5
+      const uMin = clamp(
+        lerp(domain.uMin, domain.uMax, uSlider.value / 1000),
+        domain.uMin,
+        domain.uMax - du,
+      )
+      const vMin = clamp(
+        lerp(domain.vMin, domain.vMax, vSlider.value / 1000),
+        domain.vMin,
+        domain.vMax - dv,
+      )
+      return { uMin, uMax: uMin + du, vMin, vMax: vMin + dv }
+    }
+
+    // ---- the flat panel ----------------------------------------------------
+
+    const stopFlatDrag = addPointerDrag(flatCanvas, {
+      onDown: (info) => movePatch(info.x, info.y),
+      onMove: (info) => movePatch(info.x, info.y),
+    })
+
+    function movePatch(sx: number, sy: number) {
+      const { domain } = current()
+      const u = plot.wx(sx)
+      const v = plot.wy(sy)
+      uSlider.set(
+        Math.round(
+          clamp((u - domain.uMin) / (domain.uMax - domain.uMin), 0, 1) * 1000,
+        ),
+      )
+      vSlider.set(
+        Math.round(
+          clamp((v - domain.vMin) / (domain.vMax - domain.vMin), 0, 1) * 1000,
+        ),
+      )
+      update()
+    }
+
+    // ---- the 3D panel ------------------------------------------------------
+
+    function aimCamera(handle: Scene3DHandle) {
+      const { r, domain } = current()
+      const { center, radius } = boundsOf(sampleSurface(r, domain))
+      handle.orbit.target = center
+      handle.orbit.distance = clamp(radius * 3.2 + 1, 3, 40)
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const { r, domain } = current()
+
+      addLights(three, scene)
+
+      const { geometry } = parametricMesh(three, r, domain, MESH_U, MESH_V)
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            color: new three.Color(palette.accent).lerp(
+              new three.Color(palette.background),
+              0.4,
+            ),
+            roughness: 0.9,
+            metalness: 0,
+            side: three.DoubleSide,
+            // Opaque, so it renders in the opaque pass ahead of the coordinate
+            // curves instead of being sorted over them; polygon offset then
+            // pushes its depth back far enough that lines lying on it win.
+            polygonOffset: true,
+            polygonOffsetFactor: 2,
+            polygonOffsetUnits: 2,
+          }),
+        ),
+      )
+
+      if (showGrid.on) {
+        // Lifted off the shell along its own normal, or the lines z-fight with
+        // the surface they are drawn on and disappear in patches.
+        const { radius } = boundsOf(sampleSurface(r, domain, 12))
+        const lift = radius * 0.004
+        const raise = (u: number, v: number): Vec3 => {
+          const point = r(u, v)
+          const n = unit3(normalVector(r, u, v))
+          return [
+            point[0] + n[0] * lift,
+            point[1] + n[1] * lift,
+            point[2] + n[2] * lift,
+          ]
+        }
+
+        const points: number[] = []
+        for (let k = 0; k <= GRID_LINES; k++) {
+          const u = lerp(domain.uMin, domain.uMax, k / GRID_LINES)
+          const v = lerp(domain.vMin, domain.vMax, k / GRID_LINES)
+          for (let s = 0; s < 90; s++) {
+            const a = raise(u, lerp(domain.vMin, domain.vMax, s / 90))
+            const b = raise(u, lerp(domain.vMin, domain.vMax, (s + 1) / 90))
+            points.push(a[0], a[1], a[2], b[0], b[1], b[2])
+            const c = raise(lerp(domain.uMin, domain.uMax, s / 90), v)
+            const d = raise(lerp(domain.uMin, domain.uMax, (s + 1) / 90), v)
+            points.push(c[0], c[1], c[2], d[0], d[1], d[2])
+          }
+        }
+        const lines = new three.BufferGeometry()
+        lines.setAttribute(
+          "position",
+          new three.Float32BufferAttribute(points, 3),
+        )
+        scene.add(
+          new three.LineSegments(
+            lines,
+            new three.LineBasicMaterial({
+              color: palette.background,
+              transparent: true,
+              opacity: 0.8,
+            }),
+          ),
+        )
+      }
+
+      patchGroup = new three.Group()
+      scene.add(patchGroup)
+      drawPatch(handle)
+    }
+
+    function drawPatch(handle: Scene3DHandle) {
+      const { three, palette } = handle
+      if (!patchGroup) return
+      disposeChildren(patchGroup)
+
+      const { r } = current()
+      const patch = patchDomain()
+      const { geometry } = parametricMesh(three, r, patch, 14, 14)
+      // A ghost outline that ignores depth, so the patch can always be found
+      // even when it has rotated round to the far side of the shell.
+      const outline: number[] = []
+      const corners: [number, number][] = [
+        [patch.uMin, patch.vMin],
+        [patch.uMax, patch.vMin],
+        [patch.uMax, patch.vMax],
+        [patch.uMin, patch.vMax],
+      ]
+      for (let c = 0; c < 4; c++) {
+        const [au, av] = corners[c]
+        const [bu, bv] = corners[(c + 1) % 4]
+        for (let k = 0; k < 12; k++) {
+          const p0 = r(au + ((bu - au) * k) / 12, av + ((bv - av) * k) / 12)
+          const p1 = r(
+            au + ((bu - au) * (k + 1)) / 12,
+            av + ((bv - av) * (k + 1)) / 12,
+          )
+          outline.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2])
+        }
+      }
+      const outlineGeometry = new three.BufferGeometry()
+      outlineGeometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute(outline, 3),
+      )
+      const ghost = new three.LineSegments(
+        outlineGeometry,
+        new three.LineBasicMaterial({
+          color: palette.destructive,
+          transparent: true,
+          opacity: 0.4,
+          depthTest: false,
+        }),
+      )
+      ghost.renderOrder = 2
+      patchGroup.add(ghost)
+
+      patchGroup.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshBasicMaterial({
+            color: palette.destructive,
+            side: three.DoubleSide,
+            transparent: true,
+            opacity: 0.9,
+          }),
+        ),
+      )
+
+      const u = patch.uMin
+      const v = patch.vMin
+      const origin = r(u, v)
+      const scale = handle.orbit.distance * 0.17
+      const arrows: [Vec3, string][] = [
+        [tangentU(r, u, v), palette.destructive],
+        [tangentV(r, u, v), palette.accent],
+        [normalVector(r, u, v), palette.primary],
+      ]
+      for (const [direction, color] of arrows) {
+        patchGroup.add(
+          arrowField(three, [{ origin, direction, length: scale }], {
+            color,
+            thickness: 0.035,
+            head: 0.28,
+          }),
+        )
+      }
+    }
+
+    function rebuild() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      patchGroup = null
+      buildScene(stage)
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function update() {
+      const { r, domain } = current()
+      const patch = patchDomain()
+      const du = patch.uMax - patch.uMin
+      const dv = patch.vMax - patch.vMin
+      const element = norm3(
+        normalVector(r, patch.uMin + du / 2, patch.vMin + dv / 2),
+      )
+      const measured =
+        du * dv > 0 ? patchArea(r, patch) / (du * dv) : Number.NaN
+
+      setReadout("element", fmt(element, 3))
+      setReadout("measured", fmt(measured, 3))
+      setReadout("total", fmt(patchArea(r, domain, 96), 3))
+
+      if (stage) {
+        drawPatch(stage)
+        stage.redraw()
+      }
+      app?.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.05, elevation: 0.5 },
+      distanceRange: [2.5, 30],
+      build(handle) {
+        aimCamera(handle)
+        buildScene(handle)
+      },
+      update(handle, elapsed) {
+        if (spin.on) handle.orbit.azimuth = -1.05 - elapsed * 0.3
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        update()
+        if (spin.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the flat panel and the numbers still carry the idea.
+      })
+
+    app = mountFunApp({
+      canvas: flatCanvas,
+      draw({ width, height, palette }) {
+        const { domain, axes } = current()
+        const spanU = domain.uMax - domain.uMin
+        const spanV = domain.vMax - domain.vMin
+        const aspect = width / height
+        const halfV = Math.max(spanV, spanU / aspect) / 2
+        const padded = halfV * 1.14
+        plot.fit(width, height, {
+          xMin: (domain.uMin + domain.uMax) / 2 - padded * aspect,
+          xMax: (domain.uMin + domain.uMax) / 2 + padded * aspect,
+          yMin: (domain.vMin + domain.vMax) / 2 - padded,
+          yMax: (domain.vMin + domain.vMax) / 2 + padded,
+        })
+
+        // The parameter rectangle, ruled into the same squares the surface
+        // carries as coordinate curves.
+        plot.fillPath(
+          [
+            domain.uMin,
+            domain.vMin,
+            domain.uMax,
+            domain.vMin,
+            domain.uMax,
+            domain.vMax,
+            domain.uMin,
+            domain.vMax,
+          ],
+          alpha(palette.accent, 0.12),
+        )
+
+        const rules: [number, number, number, number][] = []
+        for (let k = 0; k <= GRID_LINES; k++) {
+          const u = lerp(domain.uMin, domain.uMax, k / GRID_LINES)
+          const v = lerp(domain.vMin, domain.vMax, k / GRID_LINES)
+          rules.push([u, domain.vMin, u, domain.vMax])
+          rules.push([domain.uMin, v, domain.uMax, v])
+        }
+        plot.segments(rules, {
+          color: alpha(palette.foreground, 0.22),
+          width: 1,
+        })
+
+        plot.polyline(
+          [
+            domain.uMin,
+            domain.vMin,
+            domain.uMax,
+            domain.vMin,
+            domain.uMax,
+            domain.vMax,
+            domain.uMin,
+            domain.vMax,
+            domain.uMin,
+            domain.vMin,
+          ],
+          { color: alpha(palette.foreground, 0.6), width: 1.5 },
+        )
+
+        const patch = patchDomain()
+        plot.fillPath(
+          [
+            patch.uMin,
+            patch.vMin,
+            patch.uMax,
+            patch.vMin,
+            patch.uMax,
+            patch.vMax,
+            patch.uMin,
+            patch.vMax,
+          ],
+          alpha(palette.destructive, 0.35),
+        )
+        plot.polyline(
+          [
+            patch.uMin,
+            patch.vMin,
+            patch.uMax,
+            patch.vMin,
+            patch.uMax,
+            patch.vMax,
+            patch.uMin,
+            patch.vMax,
+            patch.uMin,
+            patch.vMin,
+          ],
+          { color: palette.destructive, width: 2.5 },
+        )
+        plot.disc(patch.uMin, patch.vMin, 5, { fill: palette.destructive })
+
+        plot.screenText(`${axes[0]} →`, width - 14, height - 12, {
+          color: palette["muted-foreground"],
+          size: 11,
+          align: "right",
+          baseline: "bottom",
+        })
+        plot.screenText(`↑ ${axes[1]}`, 14, 12, {
+          color: palette["muted-foreground"],
+          size: 11,
+          align: "left",
+          baseline: "top",
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([
+      surface,
+      uSlider,
+      vSlider,
+      sizeSlider,
+      showGrid,
+      spin,
+    ])
+
+    return () => {
+      disposed = true
+      stopFlatDrag()
+      disposeControls()
+      app?.dispose()
+      stage?.dispose()
+    }
+  })
+</script>

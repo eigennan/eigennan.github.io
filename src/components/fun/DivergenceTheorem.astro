@@ -1,0 +1,385 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const fields = [
+  { value: "radial", label: "Outward  (x, y, z)" },
+  { value: "quadratic", label: "Quadratic  (x², y², z²)" },
+  { value: "squeeze", label: "Squeeze  (x, y, −2z)" },
+  { value: "swirl", label: "Swirl  (−y, x, 0)" },
+  { value: "inverse", label: "Inverse square  (x, y, z) / r³" },
+]
+---
+
+<FunStage
+  slug="divergence-theorem"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A closed sphere floating in a vector field, its surface tinted by whether the field is leaving or entering through each patch, with the total flux and the enclosed volume reported."
+>
+  <Fragment slot="controls">
+    <FunSelect name="field" label="Field" options={fields} />
+    <FunSlider
+      name="radius"
+      label="Radius"
+      min={8}
+      max={140}
+      step={1}
+      value={90}
+      display="0.90"
+    />
+    <FunSlider
+      name="cx"
+      label="Centre x"
+      min={-150}
+      max={150}
+      step={1}
+      value={60}
+      display="0.60"
+    />
+    <FunSlider
+      name="cy"
+      label="Centre y"
+      min={-150}
+      max={150}
+      step={1}
+      value={40}
+      display="0.40"
+    />
+    <FunSlider
+      name="cz"
+      label="Centre z"
+      min={-150}
+      max={150}
+      step={1}
+      value={30}
+      display="0.30"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="arrows" label="Field arrows" pressed />
+      <FunToggle name="cut" label="Cut away" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "flux", label: "flux out of the surface" },
+        { name: "volume", label: "volume enclosed" },
+        { name: "ratio", label: "flux ÷ volume" },
+        { name: "div", label: "div F at the centre" },
+      ]}
+    />
+    <p class="fun-note">
+      Shrink the radius and watch the last two numbers meet. On the inverse
+      square field, drag the centre until it swallows the origin.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Wrap a closed surface around a chunk of space and measure the net flow out
+      of it. If more leaves than enters, something inside must be
+      <strong>producing</strong>
+      the stuff. The divergence theorem makes that accounting exact: the flux
+      out equals the total production inside.
+    </p>
+    <p>
+      "Production per unit volume, right here" is what <strong>div F</strong>
+      means, and the two bottom numbers are the definition being tested. Divide
+      the flux by the volume it came from and you get the <em>average</em>
+      production in that ball. Shrink the ball and the average has nowhere to
+      hide — it converges on the value at the single point at the centre.
+    </p>
+    <p>
+      That's the whole trick. A quantity defined by a big global integral turns
+      out to be an integral of something purely local, and the local thing is a
+      derivative you can compute without ever drawing a surface.
+    </p>
+    <p>
+      Then there's the inverse square field, which is the one worth playing
+      with. Its divergence is zero at every point where it is defined, so any
+      surface you draw has zero flux — right up until you slide the centre so
+      the sphere swallows the origin, at which point the flux jumps to 4π and
+      stays there no matter how you resize it. The theorem isn't broken; the
+      field simply isn't defined at the origin, and all the production in the
+      universe is concentrated at that one missing point. That is Gauss's law,
+      and it is why a point charge has a flux and not a divergence.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { type Arrow3D, arrowField } from "@/lib/fun/arrows3d"
+  import {
+    type Field3,
+    type Surface,
+    type Vec3,
+    divergence3,
+    fluxThrough,
+    norm3,
+    parametricMesh,
+  } from "@/lib/fun/surface3d"
+
+  const FIELDS: Record<string, Field3> = {
+    radial: (x, y, z) => [x, y, z],
+    quadratic: (x, y, z) => [x * x, y * y, z * z],
+    squeeze: (x, y, z) => [x, y, -2 * z],
+    swirl: (x, y) => [-y, x, 0],
+    inverse: (x, y, z) => {
+      const r = Math.hypot(x, y, z)
+      if (r < 1e-6) return [0, 0, 0]
+      return [x / r ** 3, y / r ** 3, z / r ** 3]
+    },
+  }
+
+  const MESH_U = 60
+  const MESH_V = 120
+  const ARROW_STEP = 0.95
+  const ARROW_REACH = 2.2
+
+  registerFunApp('[data-fun-app="divergence-theorem"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const field = bindSelect(root, "field", refresh)
+    const radius = bindSlider(root, "radius", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: refresh,
+    })
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const cx = bindSlider(root, "cx", { format: hundredths, onInput: refresh })
+    const cy = bindSlider(root, "cy", { format: hundredths, onInput: refresh })
+    const cz = bindSlider(root, "cz", { format: hundredths, onInput: refresh })
+    const showArrows = bindToggle(root, "arrows", refresh)
+    const cutAway = bindToggle(root, "cut", refresh)
+
+    const currentField = () => FIELDS[field.value] ?? FIELDS.radial
+    const centre = (): Vec3 => [cx.value / 100, cy.value / 100, cz.value / 100]
+    const R = () => radius.value / 100
+
+    /**
+     * A sphere with `u` from the pole and `v` around, in that order so
+     * r_u x r_v points outward — the orientation the theorem is stated in.
+     * `cutAway` opens a wedge so the field inside stays visible; the flux is
+     * always integrated over the whole closed sphere regardless.
+     */
+    function sphere(full: boolean): {
+      r: Surface
+      domain: ReturnType<typeof span>
+    } {
+      const [ox, oy, oz] = centre()
+      const rad = R()
+      return {
+        r: (u, v) => [
+          ox + rad * Math.sin(u) * Math.cos(v),
+          oy + rad * Math.sin(u) * Math.sin(v),
+          oz + rad * Math.cos(u),
+        ],
+        domain: span(full),
+      }
+    }
+
+    function span(full: boolean) {
+      return {
+        uMin: 0,
+        uMax: Math.PI,
+        vMin: 0,
+        vMax: full ? Math.PI * 2 : Math.PI * 1.55,
+      }
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const F = currentField()
+
+      addLights(three, scene, 0.95)
+      scene.add(makeAxes(three, 2.3, palette["muted-foreground"], 2.1))
+
+      // Integrate over the whole closed sphere even when a wedge is cut away
+      // for viewing: the theorem is a statement about a closed surface.
+      const closed = sphere(true)
+      const { faces: allFaces } = parametricMesh(
+        three,
+        closed.r,
+        closed.domain,
+        MESH_U,
+        MESH_V,
+      )
+      const total = fluxThrough(F, allFaces)
+
+      const shown = sphere(!cutAway.on)
+      const { geometry, faces } = parametricMesh(
+        three,
+        shown.r,
+        shown.domain,
+        MESH_U,
+        cutAway.on ? Math.round(MESH_V * 0.78) : MESH_V,
+      )
+      const visible = fluxThrough(F, faces)
+
+      const colors = new Float32Array(
+        geometry.getAttribute("position").count * 3,
+      )
+      const outward = new three.Color(palette.primary)
+      const inward = new three.Color(palette.accent)
+      const neutral = new three.Color(palette.background)
+      const index = geometry.getIndex()
+      const peak = Math.max(total.peak, visible.peak)
+
+      if (index) {
+        for (let q = 0; q < faces.length; q++) {
+          const strength = clamp(Math.abs(visible.perFace[q]) / peak, 0, 1)
+          const tone = neutral
+            .clone()
+            .lerp(
+              visible.perFace[q] >= 0 ? outward : inward,
+              0.2 + 0.8 * strength,
+            )
+          for (let k = 0; k < 6; k++) {
+            const vertex = index.getX(q * 6 + k)
+            colors[vertex * 3] = tone.r
+            colors[vertex * 3 + 1] = tone.g
+            colors[vertex * 3 + 2] = tone.b
+          }
+        }
+      }
+      geometry.setAttribute("color", new three.BufferAttribute(colors, 3))
+
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.85,
+            metalness: 0,
+            side: three.DoubleSide,
+          }),
+        ),
+      )
+
+      if (showArrows.on) addFieldArrows(handle, F)
+
+      const volume = (4 / 3) * Math.PI * R() ** 3
+      const [ox, oy, oz] = centre()
+      const local = divergence3(F, ox, oy, oz)
+
+      setReadout("flux", fmt(total.total, 3))
+      setReadout("volume", fmt(volume, 3))
+      setReadout("ratio", volume > 1e-9 ? fmt(total.total / volume, 3) : "—")
+      // The inverse-square field has no divergence at the origin at all; a
+      // central difference across the singularity returns a huge number rather
+      // than an honest one, so say what is actually true.
+      setReadout(
+        "div",
+        Number.isFinite(local) && Math.abs(local) < 1e6
+          ? fmt(local, 3)
+          : "undefined here",
+      )
+    }
+
+    function addFieldArrows(handle: Scene3DHandle, F: Field3) {
+      const { three, scene, palette } = handle
+      const samples: { at: Vec3; value: Vec3 }[] = []
+      let peak = 1e-9
+
+      for (let x = -ARROW_REACH; x <= ARROW_REACH; x += ARROW_STEP) {
+        for (let y = -ARROW_REACH; y <= ARROW_REACH; y += ARROW_STEP) {
+          for (let z = -ARROW_REACH; z <= ARROW_REACH; z += ARROW_STEP) {
+            if (norm3([x, y, z]) > ARROW_REACH * 1.05) continue
+            const value = F(x, y, z)
+            const magnitude = norm3(value)
+            if (!Number.isFinite(magnitude)) continue
+            peak = Math.max(peak, magnitude)
+            samples.push({ at: [x, y, z], value })
+          }
+        }
+      }
+
+      const arrows: Arrow3D[] = []
+      for (const { at, value } of samples) {
+        const magnitude = norm3(value)
+        if (magnitude < peak * 0.05) continue
+        arrows.push({
+          origin: at,
+          direction: value,
+          length: Math.min(magnitude / peak, 1) * ARROW_STEP * 0.46,
+        })
+      }
+
+      scene.add(
+        arrowField(three, arrows, {
+          color: palette["muted-foreground"],
+          anchor: "center",
+          thickness: 0.03,
+          head: 0.3,
+          opacity: 0.8,
+        }),
+      )
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.05, elevation: 0.38, distance: 7.2 },
+      distanceRange: [3.5, 26],
+      build: buildScene,
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the four numbers still tell the story on their own.
+      })
+
+    const disposeControls = disposeAll([
+      field,
+      radius,
+      cx,
+      cy,
+      cz,
+      showArrows,
+      cutAway,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

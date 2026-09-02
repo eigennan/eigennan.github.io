@@ -1,0 +1,394 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const shapes = [
+  { value: "ellipsoid", label: "Ellipsoid" },
+  { value: "paraboloid", label: "Elliptic paraboloid" },
+  { value: "saddle", label: "Hyperbolic paraboloid" },
+  { value: "cone", label: "Cone" },
+  { value: "one-sheet", label: "Hyperboloid, one sheet" },
+  { value: "two-sheet", label: "Hyperboloid, two sheets" },
+]
+---
+
+<FunStage
+  slug="quadric-surfaces"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A quadric surface with the flat slices in each of the three coordinate directions drawn on it."
+>
+  <Fragment slot="controls">
+    <FunSelect name="shape" label="Surface" options={shapes} />
+    <FunSlider
+      name="a"
+      label="a"
+      min={40}
+      max={200}
+      step={1}
+      value={110}
+      display="1.10"
+    />
+    <FunSlider
+      name="b"
+      label="b"
+      min={40}
+      max={200}
+      step={1}
+      value={80}
+      display="0.80"
+    />
+    <FunSlider
+      name="c"
+      label="c"
+      min={40}
+      max={200}
+      step={1}
+      value={130}
+      display="1.30"
+    />
+    <FunSlider
+      name="slice"
+      label="Slice position"
+      min={-100}
+      max={100}
+      step={1}
+      value={30}
+      display="0.30"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="traces" label="Traces" pressed />
+      <FunToggle name="spin" label="Spin" />
+    </div>
+    <ul class="fun-legend">
+      <li>
+        <span class="fun-legend-swatch" data-tone="primary"></span>
+        slice at constant <strong>x</strong>
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="accent"></span>
+        slice at constant <strong>y</strong>
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="destructive"></span>
+        slice at constant <strong>z</strong>
+      </li>
+    </ul>
+    <FunReadout
+      rows={[
+        { name: "equation", label: "equation" },
+        { name: "horizontal", label: "horizontal slice" },
+        { name: "vertical", label: "vertical slice" },
+      ]}
+    />
+    <p class="fun-note">
+      Every one of these is the same equation with different signs. Change a
+      sign and you change the animal.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A quadric is just the graph of a second-degree equation in three
+      variables, and there are only a handful of them. What separates one from
+      another is almost entirely the pattern of <strong>signs</strong>: all
+      three positive gives a closed ellipsoid, one negative opens it into a
+      hyperboloid of one sheet, two negative breaks it into two pieces.
+    </p>
+    <p>
+      The way to recognise one without plotting it is to
+      <strong>take slices</strong>. Set z to a constant and see what curve is
+      left; do it again for x and for y. Ellipses in every direction means an
+      ellipsoid. Ellipses one way and hyperbolas another means a hyperboloid.
+      Ellipses one way and parabolas another means a paraboloid.
+    </p>
+    <p>
+      The saddle is the one worth lingering on. Slice it vertically one way and
+      you get a parabola opening up; slice it the perpendicular way and you get
+      a parabola opening down. That single point at the middle is a maximum
+      along one direction and a minimum along another — which is exactly what a
+      saddle point of a function is, and why the second derivative test needs a
+      determinant rather than just a sign.
+    </p>
+    <p>
+      The coefficients <strong>a, b, c</strong> only stretch the shape along
+      each axis. They never change which animal you have; only the signs do.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { contourSegments, sampleGrid } from "@/lib/fun/contour"
+  import {
+    type Domain,
+    type Surface,
+    boundsOf,
+    parametricMesh,
+    sampleSurface,
+  } from "@/lib/fun/surface3d"
+
+  interface Quadric {
+    /** Built from a, b, c; parametrized so the mesh is well behaved. */
+    make: (a: number, b: number, c: number) => { r: Surface; domain: Domain }
+    equation: (a: string, b: string, c: string) => string
+    horizontal: string
+    vertical: string
+  }
+
+  const TAU = Math.PI * 2
+  const LIMIT = 1.6
+
+  const QUADRICS: Record<string, Quadric> = {
+    ellipsoid: {
+      make: (a, b, c) => ({
+        r: (u, v) => [
+          a * Math.sin(u) * Math.cos(v),
+          b * Math.sin(u) * Math.sin(v),
+          c * Math.cos(u),
+        ],
+        domain: { uMin: 0, uMax: Math.PI, vMin: 0, vMax: TAU },
+      }),
+      equation: (a, b, c) => `x²/${a}² + y²/${b}² + z²/${c}² = 1`,
+      horizontal: "an ellipse, shrinking to nothing at the poles",
+      vertical: "an ellipse",
+    },
+    paraboloid: {
+      make: (a, b, c) => ({
+        r: (u, v) => [a * u * Math.cos(v), b * u * Math.sin(v), c * u * u],
+        domain: { uMin: 0, uMax: LIMIT, vMin: 0, vMax: TAU },
+      }),
+      equation: (a, b, c) => `z/${c} = x²/${a}² + y²/${b}²`,
+      horizontal: "an ellipse, empty below the vertex",
+      vertical: "a parabola opening up",
+    },
+    saddle: {
+      make: (a, b, c) => ({
+        r: (u, v) => [a * u, b * v, c * (u * u - v * v)],
+        domain: { uMin: -LIMIT, uMax: LIMIT, vMin: -LIMIT, vMax: LIMIT },
+      }),
+      equation: (a, b, c) => `z/${c} = x²/${a}² − y²/${b}²`,
+      horizontal: "a hyperbola, degenerating to two lines at the centre",
+      vertical: "a parabola — up one way, down the other",
+    },
+    cone: {
+      make: (a, b, c) => ({
+        r: (u, v) => [a * u * Math.cos(v), b * u * Math.sin(v), c * u],
+        domain: { uMin: -LIMIT, uMax: LIMIT, vMin: 0, vMax: TAU },
+      }),
+      equation: (a, b, c) => `z²/${c}² = x²/${a}² + y²/${b}²`,
+      horizontal: "an ellipse, growing linearly from the vertex",
+      vertical: "two straight lines crossing at the vertex",
+    },
+    "one-sheet": {
+      make: (a, b, c) => ({
+        r: (u, v) => [
+          a * Math.cosh(u) * Math.cos(v),
+          b * Math.cosh(u) * Math.sin(v),
+          c * Math.sinh(u),
+        ],
+        domain: { uMin: -1.2, uMax: 1.2, vMin: 0, vMax: TAU },
+      }),
+      equation: (a, b, c) => `x²/${a}² + y²/${b}² − z²/${c}² = 1`,
+      horizontal: "an ellipse, narrowest at the waist",
+      vertical: "a hyperbola",
+    },
+    "two-sheet": {
+      make: (a, b, c) => ({
+        r: (u, v) => [
+          a * Math.sinh(u) * Math.cos(v),
+          b * Math.sinh(u) * Math.sin(v),
+          c * Math.cosh(u) * Math.sign(u || 1),
+        ],
+        domain: { uMin: -1.3, uMax: 1.3, vMin: 0, vMax: TAU },
+      }),
+      equation: (a, b, c) => `z²/${c}² − x²/${a}² − y²/${b}² = 1`,
+      horizontal: "an ellipse, or nothing at all near the origin",
+      vertical: "a hyperbola, in two separate branches",
+    },
+  }
+
+  registerFunApp('[data-fun-app="quadric-surfaces"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const shape = bindSelect(root, "shape", () => {
+      if (stage) aim(stage)
+      refresh()
+    })
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const a = bindSlider(root, "a", { format: hundredths, onInput: refresh })
+    const b = bindSlider(root, "b", { format: hundredths, onInput: refresh })
+    const c = bindSlider(root, "c", { format: hundredths, onInput: refresh })
+    const slice = bindSlider(root, "slice", {
+      format: hundredths,
+      onInput: refresh,
+    })
+    const showTraces = bindToggle(root, "traces", refresh)
+    const spin = bindToggle(root, "spin", (on) => {
+      stage?.setAnimating(on)
+      refresh()
+    })
+
+    const current = () => QUADRICS[shape.value] ?? QUADRICS.ellipsoid
+    const built = () =>
+      current().make(a.value / 100, b.value / 100, c.value / 100)
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function aim(handle: Scene3DHandle) {
+      const { r, domain } = built()
+      const { center, radius } = boundsOf(sampleSurface(r, domain, 16))
+      handle.orbit.target = center
+      handle.orbit.distance = Math.min(Math.max(radius * 3.1 + 1, 3), 30)
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const { r, domain } = built()
+
+      addLights(three, scene)
+      scene.add(makeAxes(three, 2.4, palette["muted-foreground"], 2.4))
+
+      const { geometry } = parametricMesh(three, r, domain, 90, 90)
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            color: new three.Color(palette["muted-foreground"]).lerp(
+              new three.Color(palette.background),
+              0.35,
+            ),
+            roughness: 0.9,
+            side: three.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 2,
+            polygonOffsetUnits: 2,
+          }),
+        ),
+      )
+
+      if (showTraces.on) {
+        const level = slice.value / 100
+        // A trace is a level set of one coordinate *on the surface*, so run
+        // marching squares over parameter space with that coordinate as the
+        // scalar and map the crossings back through r. Reusing the contour
+        // code keeps the curves clean and exactly on the surface, which
+        // walking the grid by hand did not.
+        const tones = [palette.primary, palette.accent, palette.destructive]
+        for (let axis = 0; axis < 3; axis++) {
+          const grid = sampleGrid(
+            (u, v) => r(u, v)[axis] - level,
+            {
+              xMin: domain.uMin,
+              xMax: domain.uMax,
+              yMin: domain.vMin,
+              yMax: domain.vMax,
+            },
+            200,
+            200,
+          )
+          const points: number[] = []
+          for (const [u0, v0, u1, v1] of contourSegments(grid, 0)) {
+            points.push(...r(u0, v0), ...r(u1, v1))
+          }
+          if (points.length === 0) continue
+          const traceGeometry = new three.BufferGeometry()
+          traceGeometry.setAttribute(
+            "position",
+            new three.Float32BufferAttribute(points, 3),
+          )
+          scene.add(
+            new three.LineSegments(
+              traceGeometry,
+              new three.LineBasicMaterial({ color: tones[axis] }),
+            ),
+          )
+        }
+      }
+
+      const quadric = current()
+      const label = (value: number) => value.toFixed(2)
+      setReadout(
+        "equation",
+        quadric.equation(
+          label(a.value / 100),
+          label(b.value / 100),
+          label(c.value / 100),
+        ),
+      )
+      setReadout("horizontal", quadric.horizontal)
+      setReadout("vertical", quadric.vertical)
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.0, elevation: 0.35 },
+      distanceRange: [2.5, 30],
+      build(handle) {
+        aim(handle)
+        buildScene(handle)
+      },
+      update(handle, elapsed) {
+        if (spin.on) handle.orbit.azimuth = -1.0 - elapsed * 0.3
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        if (spin.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the equation and its slices still describe the shape.
+      })
+
+    const disposeControls = disposeAll([
+      shape,
+      a,
+      b,
+      c,
+      slice,
+      showTraces,
+      spin,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

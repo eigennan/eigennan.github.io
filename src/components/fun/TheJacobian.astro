@@ -1,0 +1,481 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+
+const maps = [
+  { value: "polar", label: "Polar  (r cos θ, r sin θ)" },
+  { value: "shear", label: "Shear" },
+  { value: "stretch", label: "Stretch and turn" },
+  { value: "square", label: "Squaring  (u² − v², 2uv)" },
+  { value: "fold", label: "Bend" },
+]
+---
+
+<FunStage
+  slug="the-jacobian"
+  ratio="8 / 5"
+  narrowRatio="3 / 4"
+  label="A square grid in the uv-plane beside its curved image in the xy-plane, with one small square highlighted in both so its change in area can be measured."
+>
+  <Fragment slot="controls">
+    <FunSelect name="map" label="Transformation" options={maps} />
+    <FunFormula name="x" label="x(u, v)" value="u*cos(v)" />
+    <FunFormula name="y" label="y(u, v)" value="u*sin(v)" />
+    <FunSlider
+      name="u"
+      label="u"
+      min={-200}
+      max={200}
+      step={1}
+      value={110}
+      display="1.10"
+    />
+    <FunSlider
+      name="v"
+      label="v"
+      min={-200}
+      max={200}
+      step={1}
+      value={70}
+      display="0.70"
+    />
+    <FunSlider
+      name="size"
+      label="Square size"
+      min={2}
+      max={70}
+      step={1}
+      value={40}
+      display="0.40"
+    />
+    <p class="fun-note">
+      Shrink the square and watch the measured ratio settle onto |J|. That limit
+      is the whole definition.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A change of variables is a way of redrawing a region so its description
+      gets easier — a disk becomes a rectangle in polar coordinates, and
+      rectangles are what integration limits like best.
+    </p>
+    <p>
+      But you cannot just swap the variables and carry on, because the
+      transformation <strong>distorts area</strong>. The uv grid on the left is
+      made of identical squares. Its image on the right is not: near the origin
+      in polar coordinates the cells are tiny, and far out they are large. Any
+      honest total has to weight each cell by how much area it actually
+      occupies.
+    </p>
+    <p>
+      That weight is the <strong>Jacobian</strong>. Zoom in far enough and any
+      smooth map looks linear, a linear map multiplies every area by the
+      determinant of its matrix, and that matrix is the one built from the four
+      partial derivatives. So |J| is the local area-stretching factor — the
+      number that turns du dv into dx dy.
+    </p>
+    <p>
+      The two numbers in the corner are the claim and the evidence: |J| computed
+      from derivatives, and the honest measured area of the image quadrilateral
+      divided by the area of the square that produced it. They disagree while
+      the square is big, because curvature matters at that scale. Shrink it and
+      they converge — which is exactly what "infinitesimal" is doing in the
+      formula.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { type Palette, alpha } from "@/lib/fun/theme"
+
+  interface MapPreset {
+    x: string
+    y: string
+    domain: { uMin: number; uMax: number; vMin: number; vMax: number }
+  }
+
+  const MAPS: Record<string, MapPreset> = {
+    polar: {
+      x: "u*cos(v)",
+      y: "u*sin(v)",
+      // Nearly square in uv, so the parameter rectangle fills its panel and
+      // the "grid of identical squares" reads as one.
+      domain: { uMin: 0, uMax: 3, vMin: 0, vMax: 3.14159 },
+    },
+    shear: {
+      x: "u + 0.6v",
+      y: "v",
+      domain: { uMin: -2, uMax: 2, vMin: -2, vMax: 2 },
+    },
+    stretch: {
+      x: "1.6u - 0.5v",
+      y: "0.4u + 1.1v",
+      domain: { uMin: -2, uMax: 2, vMin: -2, vMax: 2 },
+    },
+    square: {
+      x: "u^2 - v^2",
+      y: "2u v",
+      domain: { uMin: 0, uMax: 1.6, vMin: 0, vMax: 1.6 },
+    },
+    fold: {
+      x: "u",
+      y: "v + 0.45u^2",
+      domain: { uMin: -2, uMax: 2, vMin: -2, vMax: 2 },
+    },
+  }
+
+  const GRID_LINES = 11
+  const EDGE_SAMPLES = 26
+  const HEADER = 26
+
+  registerFunApp('[data-fun-app="the-jacobian"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const ctx = maybeContext
+    const plotUV = new Plot2D(ctx)
+    const plotXY = new Plot2D(ctx)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let uvPanel = { x: 0, y: 0, w: 0, h: 0 }
+    let domain = MAPS.polar.domain
+
+    const xFormula = bindFormula(
+      root,
+      "x",
+      ["u", "v"],
+      (u, v) => u * Math.cos(v),
+      redraw,
+    )
+    const yFormula = bindFormula(
+      root,
+      "y",
+      ["u", "v"],
+      (u, v) => u * Math.sin(v),
+      redraw,
+    )
+
+    const mapSelect = bindSelect(root, "map", (value) => {
+      const preset = MAPS[value] ?? MAPS.polar
+      domain = preset.domain
+      for (const [name, source] of [
+        ["x", preset.x],
+        ["y", preset.y],
+      ] as const) {
+        const input = root.querySelector<HTMLInputElement>(
+          `[data-fun-formula="${name}"]`,
+        )
+        if (!input) continue
+        input.value = source
+        input.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+      // Park the probe somewhere inside the new domain.
+      uSlider.set(Math.round(((domain.uMin + domain.uMax) / 2) * 100))
+      vSlider.set(Math.round(((domain.vMin + domain.vMax) / 2) * 100))
+      redraw()
+    })
+
+    const uSlider = bindSlider(root, "u", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const vSlider = bindSlider(root, "v", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const sizeSlider = bindSlider(root, "size", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+
+    const mapPoint = (u: number, v: number): [number, number] => [
+      xFormula.fn(u, v),
+      yFormula.fn(u, v),
+    ]
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown: (info) => moveProbe(info.x, info.y),
+      onMove: (info) => moveProbe(info.x, info.y),
+    })
+
+    function moveProbe(sx: number, sy: number) {
+      // Only the uv panel is draggable; the xy side is the consequence.
+      if (sx > uvPanel.x + uvPanel.w) return
+      const u = plotUV.wx(sx - uvPanel.x)
+      const v = plotUV.wy(sy - uvPanel.y - HEADER)
+      uSlider.set(Math.round(clamp(u, domain.uMin, domain.uMax) * 100))
+      vSlider.set(Math.round(clamp(v, domain.vMin, domain.vMax) * 100))
+      redraw()
+    }
+
+    /** The square's boundary in uv, walked counterclockwise. */
+    function squareLoop(u: number, v: number, h: number): number[] {
+      const corners: [number, number][] = [
+        [u, v],
+        [u + h, v],
+        [u + h, v + h],
+        [u, v + h],
+      ]
+      const loop: number[] = []
+      for (let c = 0; c < 4; c++) {
+        const [ax, ay] = corners[c]
+        const [bx, by] = corners[(c + 1) % 4]
+        for (let i = 0; i < EDGE_SAMPLES; i++) {
+          const t = i / EDGE_SAMPLES
+          loop.push(ax + (bx - ax) * t, ay + (by - ay) * t)
+        }
+      }
+      return loop
+    }
+
+    function mapLoop(loop: number[]): number[] {
+      const out: number[] = []
+      for (let i = 0; i < loop.length; i += 2) {
+        const [x, y] = mapPoint(loop[i], loop[i + 1])
+        out.push(x, y)
+      }
+      return out
+    }
+
+    /** Shoelace area of a closed polygon; sign-free, since we want a ratio. */
+    function polygonArea(loop: number[]): number {
+      let total = 0
+      const n = loop.length / 2
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n
+        total += loop[i * 2] * loop[j * 2 + 1] - loop[j * 2] * loop[i * 2 + 1]
+      }
+      return Math.abs(total) / 2
+    }
+
+    function jacobian(u: number, v: number): number {
+      const h = 1e-4
+      const [xu1, yu1] = mapPoint(u + h, v)
+      const [xu0, yu0] = mapPoint(u - h, v)
+      const [xv1, yv1] = mapPoint(u, v + h)
+      const [xv0, yv0] = mapPoint(u, v - h)
+      const xu = (xu1 - xu0) / (2 * h)
+      const yu = (yu1 - yu0) / (2 * h)
+      const xv = (xv1 - xv0) / (2 * h)
+      const yv = (yv1 - yv0) / (2 * h)
+      return xu * yv - xv * yu
+    }
+
+    function fitPlot(
+      plot: Plot2D,
+      w: number,
+      h: number,
+      box: { xMin: number; xMax: number; yMin: number; yMax: number },
+    ) {
+      const spanX = box.xMax - box.xMin || 1
+      const spanY = box.yMax - box.yMin || 1
+      const aspect = w / h
+      const halfY = Math.max(spanY, spanX / aspect) / 2
+      const padded = halfY * 1.12
+      plot.fit(w, h, {
+        xMin: (box.xMin + box.xMax) / 2 - padded * aspect,
+        xMax: (box.xMin + box.xMax) / 2 + padded * aspect,
+        yMin: (box.yMin + box.yMax) / 2 - padded,
+        yMax: (box.yMin + box.yMax) / 2 + padded,
+      })
+    }
+
+    /** Bounding box of the domain's image, so the right panel frames it. */
+    function imageBox() {
+      let xMin = Number.POSITIVE_INFINITY
+      let xMax = Number.NEGATIVE_INFINITY
+      let yMin = Number.POSITIVE_INFINITY
+      let yMax = Number.NEGATIVE_INFINITY
+      for (let i = 0; i <= 40; i++) {
+        for (let j = 0; j <= 40; j++) {
+          const [x, y] = mapPoint(
+            domain.uMin + ((domain.uMax - domain.uMin) * i) / 40,
+            domain.vMin + ((domain.vMax - domain.vMin) * j) / 40,
+          )
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+          xMin = Math.min(xMin, x)
+          xMax = Math.max(xMax, x)
+          yMin = Math.min(yMin, y)
+          yMax = Math.max(yMax, y)
+        }
+      }
+      if (!Number.isFinite(xMin))
+        return { xMin: -1, xMax: 1, yMin: -1, yMax: 1 }
+      return { xMin, xMax, yMin, yMax }
+    }
+
+    function drawPanel(
+      palette: Palette,
+      plot: Plot2D,
+      px: number,
+      py: number,
+      pw: number,
+      ph: number,
+      title: string,
+      transform: boolean,
+      loop: number[],
+    ) {
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.beginPath()
+      ctx.rect(0, 0, pw, ph)
+      ctx.clip()
+
+      plot.screenText(title, 16, 8, {
+        color: palette.foreground,
+        size: 12.5,
+        align: "left",
+        baseline: "top",
+        weight: "600",
+      })
+
+      ctx.translate(0, HEADER)
+      plot.axes(alpha(palette.foreground, 0.3))
+
+      // Grid lines of the domain, drawn straight on the left and mapped on the
+      // right. Side by side they are the entire story of the transformation.
+      for (let i = 0; i <= GRID_LINES; i++) {
+        const u = domain.uMin + ((domain.uMax - domain.uMin) * i) / GRID_LINES
+        const v = domain.vMin + ((domain.vMax - domain.vMin) * i) / GRID_LINES
+        const uLine: number[] = []
+        const vLine: number[] = []
+        for (let k = 0; k <= 60; k++) {
+          const tv = domain.vMin + ((domain.vMax - domain.vMin) * k) / 60
+          const tu = domain.uMin + ((domain.uMax - domain.uMin) * k) / 60
+          const a = transform ? mapPoint(u, tv) : [u, tv]
+          const b = transform ? mapPoint(tu, v) : [tu, v]
+          uLine.push(a[0], a[1])
+          vLine.push(b[0], b[1])
+        }
+        plot.polyline(uLine, { color: alpha(palette.accent, 0.4), width: 1 })
+        plot.polyline(vLine, { color: alpha(palette.primary, 0.4), width: 1 })
+      }
+
+      plot.fillPath(loop, alpha(palette.destructive, 0.3))
+      plot.polyline([...loop, loop[0], loop[1]], {
+        color: palette.destructive,
+        width: 2.5,
+      })
+
+      ctx.restore()
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ width, height, palette }) {
+        const u = uSlider.value / 100
+        const v = vSlider.value / 100
+        const h = sizeSlider.value / 100
+
+        const sideBySide = width / height > 1.5
+        const gap = 1
+        const pw = sideBySide ? (width - gap) / 2 : width
+        const ph = sideBySide ? height : (height - gap) / 2
+        uvPanel = { x: 0, y: 0, w: pw, h: ph }
+
+        fitPlot(plotUV, pw, ph - HEADER, {
+          xMin: domain.uMin,
+          xMax: domain.uMax,
+          yMin: domain.vMin,
+          yMax: domain.vMax,
+        })
+        fitPlot(plotXY, pw, ph - HEADER, imageBox())
+
+        const source = squareLoop(u, v, h)
+        const image = mapLoop(source)
+
+        drawPanel(palette, plotUV, 0, 0, pw, ph, "uv-plane", false, source)
+        drawPanel(
+          palette,
+          plotXY,
+          sideBySide ? pw + gap : 0,
+          sideBySide ? 0 : ph + gap,
+          pw,
+          ph,
+          "xy-plane",
+          true,
+          image,
+        )
+
+        ctx.beginPath()
+        if (sideBySide) {
+          ctx.moveTo(pw + gap / 2, 12)
+          ctx.lineTo(pw + gap / 2, height - 12)
+        } else {
+          ctx.moveTo(12, ph + gap / 2)
+          ctx.lineTo(width - 12, ph + gap / 2)
+        }
+        ctx.strokeStyle = alpha(palette.border, 1)
+        ctx.lineWidth = 1
+        ctx.stroke()
+
+        const detJ = jacobian(u + h / 2, v + h / 2)
+        const sourceArea = h * h
+        const imageArea = polygonArea(image)
+        const ratio = sourceArea > 0 ? imageArea / sourceArea : Number.NaN
+
+        const lines: [string, string][] = [
+          ["|J| from derivatives", fmt(Math.abs(detJ), 3)],
+          ["measured area ratio", fmt(ratio, 3)],
+        ]
+        // Bottom-right: clear of the sticky site header above, and of the uv
+        // grid on the left, which usually reaches its panel's edges.
+        const panelHeight = lines.length * 19 + 16
+        const panelWidth = 236
+        const panelTop = height - panelHeight - 12
+        const panelLeft = width - panelWidth - 12
+        plotUV.panel(panelLeft, panelTop, panelWidth, panelHeight, palette)
+        lines.forEach(([label, value], index) => {
+          const y = panelTop + 16 + index * 19
+          plotUV.screenText(label, panelLeft + 10, y, {
+            color: palette["muted-foreground"],
+            size: 11.5,
+            align: "left",
+          })
+          plotUV.screenText(value, panelLeft + panelWidth - 10, y, {
+            color: index === 0 ? palette.foreground : palette.destructive,
+            size: 12,
+            align: "right",
+            mono: true,
+            weight: "600",
+          })
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([
+      xFormula,
+      yFormula,
+      mapSelect,
+      uSlider,
+      vSlider,
+      sizeSlider,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

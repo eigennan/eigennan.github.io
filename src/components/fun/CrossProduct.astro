@@ -1,0 +1,307 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+---
+
+<FunStage
+  slug="cross-product"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="Two vectors spanning a shaded parallelogram in space with their cross product standing perpendicular to it, and an optional third vector closing a parallelepiped."
+>
+  <Fragment slot="controls">
+    <FunSlider
+      name="ax"
+      label="a — x"
+      min={-200}
+      max={200}
+      step={1}
+      value={150}
+      display="1.50"
+    />
+    <FunSlider
+      name="ay"
+      label="a — y"
+      min={-200}
+      max={200}
+      step={1}
+      value={20}
+      display="0.20"
+    />
+    <FunSlider
+      name="az"
+      label="a — z"
+      min={-200}
+      max={200}
+      step={1}
+      value={0}
+      display="0.00"
+    />
+    <FunSlider
+      name="bx"
+      label="b — x"
+      min={-200}
+      max={200}
+      step={1}
+      value={40}
+      display="0.40"
+    />
+    <FunSlider
+      name="by"
+      label="b — y"
+      min={-200}
+      max={200}
+      step={1}
+      value={140}
+      display="1.40"
+    />
+    <FunSlider
+      name="bz"
+      label="b — z"
+      min={-200}
+      max={200}
+      step={1}
+      value={0}
+      display="0.00"
+    />
+    <FunSlider
+      name="cz"
+      label="c — height"
+      min={-180}
+      max={180}
+      step={1}
+      value={120}
+      display="1.20"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="volume" label="Third vector" />
+      <FunToggle name="spin" label="Spin" />
+    </div>
+    <ul class="fun-legend">
+      <li>
+        <span class="fun-legend-swatch" data-tone="destructive"></span>
+        <strong>a</strong>
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="accent"></span>
+        <strong>b</strong>
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="primary"></span>
+        <strong>a × b</strong>&nbsp;— perpendicular to both
+      </li>
+    </ul>
+    <FunReadout
+      rows={[
+        { name: "cross", label: "a × b" },
+        { name: "length", label: "|a × b| = area" },
+        { name: "check", label: "|a| |b| sin θ" },
+        { name: "triple", label: "(a × b) · c = volume" },
+      ]}
+    />
+    <p class="fun-note">
+      Swap a and b — mentally, or by moving them past each other — and the cross
+      product points the other way.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Two vectors span a parallelogram. The <strong>cross product</strong>
+      packages that parallelogram into a single vector: it stands perpendicular
+      to the plane the two of them span, and its <em>length</em> is the
+      parallelogram's <strong>area</strong>. One object carrying both the
+      orientation of the plane and the size of the patch.
+    </p>
+    <p>
+      Which way perpendicular? There are two choices and no way to decide from
+      the vectors alone, so we simply agree: curl the fingers of your right hand
+      from <strong>a</strong> to <strong>b</strong> and your thumb points along
+      <strong>a × b</strong>. That convention is the reason cross products
+      anti-commute — going b to a curls the other way, so
+      <strong>b × a = −(a × b)</strong>.
+    </p>
+    <p>
+      Slide the two vectors toward each other and watch the area shrink to
+      nothing: parallel vectors span no parallelogram, so their cross product is
+      the zero vector. That is the exact mirror of the dot product vanishing for
+      perpendicular vectors.
+    </p>
+    <p>
+      Turn on the third vector and the parallelogram becomes a box. Its volume
+      is <strong>(a × b) · c</strong> — area of the base, times the height, and
+      the height is what the dot product measures. That number is also the
+      determinant of the three vectors written as a matrix, which is where the
+      determinant's "how much does this transformation scale volume" meaning
+      comes from, and eventually the Jacobian.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { arrowField } from "@/lib/fun/arrows3d"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { bindSlider, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { type Vec3, add3, cross3, dot3, norm3 } from "@/lib/fun/surface3d"
+
+  registerFunApp('[data-fun-app="cross-product"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const sliders = ["ax", "ay", "az", "bx", "by", "bz", "cz"].map((name) =>
+      bindSlider(root, name, { format: hundredths, onInput: refresh }),
+    )
+    const [ax, ay, az, bx, by, bz, cz] = sliders
+    const showVolume = bindToggle(root, "volume", refresh)
+    const spin = bindToggle(root, "spin", (on) => {
+      stage?.setAnimating(on)
+      refresh()
+    })
+
+    const A = (): Vec3 => [ax.value / 100, ay.value / 100, az.value / 100]
+    const B = (): Vec3 => [bx.value / 100, by.value / 100, bz.value / 100]
+    /** The third vector leans off the base plane, so the box has a height. */
+    const C = (): Vec3 => [0.35, 0.2, cz.value / 100]
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /** A filled parallelogram spanned by two vectors at an origin. */
+    function quad(
+      handle: Scene3DHandle,
+      origin: Vec3,
+      u: Vec3,
+      v: Vec3,
+      color: string,
+      opacity: number,
+    ) {
+      const { three } = handle
+      const p0 = origin
+      const p1 = add3(origin, u)
+      const p2 = add3(add3(origin, u), v)
+      const p3 = add3(origin, v)
+      const geometry = new three.BufferGeometry()
+      geometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute(
+          [...p0, ...p1, ...p2, ...p0, ...p2, ...p3],
+          3,
+        ),
+      )
+      geometry.computeVertexNormals()
+      return new three.Mesh(
+        geometry,
+        new three.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity,
+          side: three.DoubleSide,
+          depthWrite: false,
+        }),
+      )
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const a = A()
+      const b = B()
+      const c = C()
+      const n = cross3(a, b)
+
+      addLights(three, scene, 0.9)
+      scene.add(makeAxes(three, 2.1, palette["muted-foreground"], 2.1))
+
+      scene.add(quad(handle, [0, 0, 0], a, b, palette.accent, 0.28))
+
+      if (showVolume.on) {
+        // The box: base parallelogram, its translate along c, and the sides.
+        scene.add(quad(handle, c, a, b, palette.accent, 0.18))
+        scene.add(quad(handle, [0, 0, 0], a, c, palette.primary, 0.14))
+        scene.add(quad(handle, [0, 0, 0], b, c, palette.primary, 0.14))
+        scene.add(quad(handle, b, a, c, palette.primary, 0.14))
+        scene.add(quad(handle, a, b, c, palette.primary, 0.14))
+      }
+
+      const arrows: [Vec3, string, number][] = [
+        [a, palette.destructive, norm3(a)],
+        [b, palette.accent, norm3(b)],
+        [n, palette.primary, norm3(n)],
+      ]
+      if (showVolume.on) arrows.push([c, palette["muted-foreground"], norm3(c)])
+
+      for (const [direction, color, length] of arrows) {
+        if (length < 1e-6) continue
+        scene.add(
+          arrowField(three, [{ origin: [0, 0, 0], direction, length }], {
+            color,
+            thickness: 0.035,
+            head: 0.22,
+          }),
+        )
+      }
+
+      const area = norm3(n)
+      const lengths = norm3(a) * norm3(b)
+      const cos = lengths > 1e-9 ? dot3(a, b) / lengths : 0
+      const sin = Math.sqrt(Math.max(0, 1 - cos * cos))
+
+      setReadout("cross", `(${fmt(n[0])}, ${fmt(n[1])}, ${fmt(n[2])})`)
+      setReadout("length", fmt(area, 3))
+      setReadout("check", fmt(lengths * sin, 3))
+      setReadout("triple", showVolume.on ? fmt(Math.abs(dot3(n, c)), 3) : "—")
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -0.95, elevation: 0.45, distance: 6.2 },
+      distanceRange: [2.5, 16],
+      build: buildScene,
+      update(handle, elapsed) {
+        if (spin.on) handle.orbit.azimuth = -0.95 - elapsed * 0.3
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        if (spin.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the readouts still carry the arithmetic.
+      })
+
+    const disposeControls = disposeAll([...sliders, showVolume, spin])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

@@ -1,0 +1,23 @@
+---
+interface Props {
+  name: string
+  label: string
+  options: { value: string; label: string }[]
+  value?: string
+}
+
+const { name, label, options, value } = Astro.props
+const id = `fun-${name}`
+const selected = value ?? options[0]?.value
+---
+
+<div class="fun-control">
+  <label class="fun-control-label" for={id}>{label}</label>
+  <select class="fun-select" id={id} data-fun-select={name}>
+    {options.map((option) => (
+      <option value={option.value} selected={option.value === selected}>
+        {option.label}
+      </option>
+    ))}
+  </select>
+</div>

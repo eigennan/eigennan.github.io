@@ -1,0 +1,411 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const regions = [
+  { value: "quarter", label: "Quarter disk  (area = π/4)" },
+  { value: "petal", label: "Four-petal rose" },
+  { value: "triangle", label: "Triangle" },
+  { value: "ring", label: "Annulus" },
+]
+---
+
+<FunStage
+  slug="monte-carlo"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A shape inside a square with random points scattered over it, and a log-log graph of how the estimate's error falls as more points are thrown."
+>
+  <Fragment slot="controls">
+    <FunSelect name="region" label="Shape" options={regions} />
+    <FunSlider
+      name="darts"
+      label="Darts thrown"
+      min={1}
+      max={400}
+      step={1}
+      value={90}
+      display="810"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="throwing" label="Keep throwing" />
+      <FunToggle name="reference" label="1/√N guide" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "count", label: "darts thrown" },
+        { name: "estimate", label: "estimated area" },
+        { name: "exact", label: "exact area" },
+        { name: "error", label: "error" },
+      ]}
+    />
+    <p class="fun-note">
+      To get one more decimal place you need a hundred times as many darts.
+      That's the deal.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Here is a way to measure an area with no calculus at all. Draw a box you
+      know the area of, scatter points at random inside it, and count what
+      fraction land in your shape. That fraction times the box's area is your
+      answer. It is embarrassingly simple and it works for any shape you can
+      test membership of.
+    </p>
+    <p>
+      The price is on the graph below. The error falls like
+      <strong>1/√N</strong>
+      — the straight line of slope −½ on log-log axes. A hundred times the work
+      buys one extra decimal digit. Against the trapezoid rule in one dimension,
+      which does far better than that, this looks like a terrible bargain.
+    </p>
+    <p>
+      Except that <strong>1/√N has no dimension in it</strong>. A grid rule
+      needs its sample points arranged along every axis, so in
+      <em>d</em>
+      dimensions the cost of a fixed accuracy grows like a power of d — a grid
+      of ten points per axis is a hundred in 2D, a thousand in 3D, and utterly
+      hopeless by the time you reach twenty. Random points don't care. They
+      converge at the same slow, reliable rate whether the problem has two
+      dimensions or two hundred.
+    </p>
+    <p>
+      That is why financial models, particle physics and machine learning are
+      full of random sampling. Not because it's accurate, but because in high
+      dimensions it is the only thing that still works at all.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha } from "@/lib/fun/theme"
+
+  interface Region {
+    inside: (x: number, y: number) => boolean
+    exact: number
+    outline: (t: number) => [number, number] | null
+  }
+
+  /** Every shape lives in the unit square, so the box area is always 1. */
+  const REGIONS: Record<string, Region> = {
+    quarter: {
+      inside: (x, y) => x * x + y * y <= 1,
+      exact: Math.PI / 4,
+      outline: (t) => [
+        Math.cos((t * Math.PI) / 2),
+        Math.sin((t * Math.PI) / 2),
+      ],
+    },
+    petal: {
+      inside: (x, y) => {
+        const r = Math.hypot(x - 0.5, y - 0.5) * 2
+        const angle = Math.atan2(y - 0.5, x - 0.5)
+        return r <= Math.abs(Math.cos(2 * angle))
+      },
+      // Area of r = |cos 2θ| scaled to the box: pi/2 in unit-r terms, /4 here.
+      exact: Math.PI / 8,
+      outline: (t) => {
+        const angle = t * Math.PI * 2
+        const r = Math.abs(Math.cos(2 * angle)) / 2
+        return [0.5 + r * Math.cos(angle), 0.5 + r * Math.sin(angle)]
+      },
+    },
+    triangle: {
+      inside: (x, y) => y <= 2 * x && y <= 2 - 2 * x,
+      exact: 0.5,
+      outline: (t) => {
+        const corners: [number, number][] = [
+          [0, 0],
+          [1, 0],
+          [0.5, 1],
+        ]
+        const scaled = t * 3
+        const i = Math.min(2, Math.floor(scaled))
+        const f = scaled - i
+        const a = corners[i]
+        const b = corners[(i + 1) % 3]
+        return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]
+      },
+    },
+    ring: {
+      inside: (x, y) => {
+        const r = Math.hypot(x - 0.5, y - 0.5)
+        return r <= 0.45 && r >= 0.22
+      },
+      exact: Math.PI * (0.45 * 0.45 - 0.22 * 0.22),
+      outline: (t) => {
+        const angle = t * Math.PI * 2
+        return [0.5 + 0.45 * Math.cos(angle), 0.5 + 0.45 * Math.sin(angle)]
+      },
+    },
+  }
+
+  const MAX_DARTS = 160000
+  const STRIP_HEIGHT = 108
+
+  registerFunApp('[data-fun-app="monte-carlo"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    // Darts are generated once from a fixed stream so the picture is stable
+    // across repaints; the slider only changes how many of them count.
+    let stream: Float64Array = new Float64Array(0)
+    let hits: Uint8Array = new Uint8Array(0)
+    /** Prefix sums of `hits`, so any dart count is a constant-time lookup. */
+    let cumulative: Int32Array = new Int32Array(0)
+    let lastElapsed = 0
+
+    const region = bindSelect(root, "region", () => {
+      regenerate()
+      redraw()
+    })
+    const darts = bindSlider(root, "darts", {
+      format: (v) => String(dartCount(v)),
+      onInput: redraw,
+    })
+    const throwing = bindToggle(root, "throwing", (on) => {
+      app?.setAnimating(on)
+      redraw()
+    })
+    const showReference = bindToggle(root, "reference", redraw)
+
+    const current = () => REGIONS[region.value] ?? REGIONS.quarter
+
+    /** The slider is logarithmic: 1 dart to 160 000 across its travel. */
+    function dartCount(slider: number): number {
+      return Math.round(10 ** ((slider / 400) * Math.log10(MAX_DARTS)))
+    }
+
+    function regenerate() {
+      const { inside } = current()
+      stream = new Float64Array(MAX_DARTS * 2)
+      hits = new Uint8Array(MAX_DARTS)
+      cumulative = new Int32Array(MAX_DARTS + 1)
+      for (let i = 0; i < MAX_DARTS; i++) {
+        const x = Math.random()
+        const y = Math.random()
+        stream[i * 2] = x
+        stream[i * 2 + 1] = y
+        hits[i] = inside(x, y) ? 1 : 0
+        cumulative[i + 1] = cumulative[i] + hits[i]
+      }
+    }
+
+    /**
+     * Hits among the first `n` darts. The error curve asks this a hundred
+     * times a frame, so it has to be O(1) rather than a rescan.
+     */
+    function hitsUpTo(n: number): number {
+      return cumulative[Math.min(Math.max(n, 0), MAX_DARTS)]
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    regenerate()
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }, elapsed) {
+        if (throwing.on) {
+          const dt = elapsed - lastElapsed
+          if (dt > 0) {
+            const next = clamp(darts.value + dt * 55, 1, 400)
+            darts.set(Math.round(next))
+          }
+        }
+        lastElapsed = elapsed
+
+        const { exact, outline } = current()
+        const n = dartCount(darts.value)
+        const mapHeight = height - STRIP_HEIGHT
+        const pad = 0.08
+        const aspect = width / mapHeight
+        const half = (1 + pad * 2) / 2
+        plot.fit(width, mapHeight, {
+          xMin: 0.5 - half * aspect,
+          xMax: 0.5 + half * aspect,
+          yMin: 0.5 - half,
+          yMax: 0.5 + half,
+        })
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, mapHeight)
+        ctx.clip()
+
+        // The box whose area we know.
+        plot.polyline([0, 0, 1, 0, 1, 1, 0, 1, 0, 0], {
+          color: alpha(palette.foreground, 0.45),
+          width: 1.5,
+        })
+
+        const shape: number[] = []
+        for (let i = 0; i <= 240; i++) {
+          const point = outline(i / 240)
+          if (point) shape.push(point[0], point[1])
+        }
+        plot.fillPath(shape, alpha(palette.accent, 0.16))
+        plot.polyline(shape, { color: palette.accent, width: 2 })
+
+        // Only the most recent darts are drawn individually; beyond a few
+        // thousand the dots merge into a wash and cost frame time for nothing.
+        const drawn = Math.min(n, 4000)
+        const start = n - drawn
+        ctx.beginPath()
+        for (let i = start; i < n; i++) {
+          if (hits[i]) continue
+          const px = plot.sx(stream[i * 2])
+          const py = plot.sy(stream[i * 2 + 1])
+          ctx.moveTo(px + 1.3, py)
+          ctx.arc(px, py, 1.3, 0, Math.PI * 2)
+        }
+        ctx.fillStyle = alpha(palette["muted-foreground"], 0.5)
+        ctx.fill()
+
+        ctx.beginPath()
+        for (let i = start; i < n; i++) {
+          if (!hits[i]) continue
+          const px = plot.sx(stream[i * 2])
+          const py = plot.sy(stream[i * 2 + 1])
+          ctx.moveTo(px + 1.6, py)
+          ctx.arc(px, py, 1.6, 0, Math.PI * 2)
+        }
+        ctx.fillStyle = alpha(palette.destructive, 0.75)
+        ctx.fill()
+
+        ctx.restore()
+
+        const inside = hitsUpTo(n)
+        const estimate = inside / n
+        const error = Math.abs(estimate - exact)
+
+        setReadout("count", n.toLocaleString())
+        setReadout("estimate", fmt(estimate, 5))
+        setReadout("exact", fmt(exact, 5))
+        setReadout("error", error > 0 ? error.toExponential(2) : "0")
+
+        drawStrip(ctx, palette, width, mapHeight, exact)
+      },
+    })
+
+    /** Error against dart count, both on log scales. */
+    function drawStrip(
+      ctx: CanvasRenderingContext2D,
+      palette: Record<string, string>,
+      width: number,
+      top: number,
+      exact: number,
+    ) {
+      const padX = 40
+      const innerWidth = width - padX - 16
+      const innerTop = top + 22
+      const innerHeight = STRIP_HEIGHT - 40
+
+      ctx.beginPath()
+      ctx.moveTo(0, top)
+      ctx.lineTo(width, top)
+      ctx.strokeStyle = alpha(palette.border, 1)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      const logNMax = Math.log10(MAX_DARTS)
+      const errMin = -4
+      const errMax = 0
+      const px = (logN: number) => padX + (logN / logNMax) * innerWidth
+      const py = (logE: number) =>
+        innerTop +
+        innerHeight -
+        ((clamp(logE, errMin, errMax) - errMin) / (errMax - errMin)) *
+          innerHeight
+
+      if (showReference.on) {
+        // log(error) = -1/2 log(N) + c: the rate every Monte Carlo estimate
+        // converges at, drawn as a straight line on these log-log axes.
+        const guide = (logN: number) => -0.5 * logN - 0.35
+        ctx.beginPath()
+        ctx.moveTo(px(0), py(guide(0)))
+        ctx.lineTo(px(logNMax), py(guide(logNMax)))
+        ctx.strokeStyle = alpha(palette["muted-foreground"], 0.8)
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([5, 4])
+        ctx.stroke()
+        ctx.setLineDash([])
+        plot.screenText(
+          "slope −1/2",
+          px(logNMax) - 6,
+          py(-0.5 * logNMax - 0.35) - 10,
+          {
+            color: palette["muted-foreground"],
+            size: 10.5,
+            align: "right",
+          },
+        )
+      }
+
+      // The measured error at a spread of sample counts.
+      ctx.beginPath()
+      let started = false
+      for (let k = 4; k <= 400; k += 4) {
+        const n = dartCount(k)
+        if (n < 8) continue
+        const error = Math.abs(hitsUpTo(n) / n - exact)
+        if (!(error > 0)) continue
+        const x = px(Math.log10(n))
+        const y = py(Math.log10(error))
+        if (started) ctx.lineTo(x, y)
+        else {
+          ctx.moveTo(x, y)
+          started = true
+        }
+      }
+      ctx.strokeStyle = palette.destructive
+      ctx.lineWidth = 1.75
+      ctx.stroke()
+
+      plot.screenText("error", 8, innerTop + innerHeight / 2, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "left",
+      })
+      plot.screenText("darts thrown, log scale", width - 16, top + 8, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "right",
+        baseline: "top",
+      })
+    }
+
+    const disposeControls = disposeAll([region, darts, throwing, showReference])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

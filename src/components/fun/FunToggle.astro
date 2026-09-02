@@ -1,0 +1,18 @@
+---
+interface Props {
+  name: string
+  label: string
+  pressed?: boolean
+}
+
+const { name, label, pressed = false } = Astro.props
+---
+
+<button
+  class="fun-toggle"
+  type="button"
+  data-fun-toggle={name}
+  aria-pressed={pressed ? "true" : "false"}
+>
+  {label}
+</button>

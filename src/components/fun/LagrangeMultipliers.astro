@@ -1,0 +1,512 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const constraints = [
+  { value: "circle", label: "Circle  x² + y² = 4" },
+  { value: "ellipse", label: "Ellipse  x²/4 + y² = 1" },
+  { value: "line", label: "Line  x + 2y = 3" },
+  { value: "squircle", label: "Squircle  x⁴ + y⁴ = 4" },
+]
+---
+
+<FunStage
+  slug="lagrange-multipliers"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A contour map of an objective function with a constraint curve drawn over it, a movable point on the constraint, its two gradient arrows, and a graph of the objective along the constraint."
+>
+  <Fragment slot="controls">
+    <FunSelect name="constraint" label="Constraint" options={constraints} />
+    <FunFormula name="f" label="Maximize f(x, y)" value="x + y" />
+    <FunSlider
+      name="t"
+      label="Position on the curve"
+      min={0}
+      max={1000}
+      step={1}
+      value={350}
+      display="0.350"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="marks" label="Candidates" pressed />
+      <FunToggle name="levels" label="Contours" pressed />
+    </div>
+    <p class="fun-note">
+      Slide all the way around and watch the two arrows. They line up only at
+      the marked points, and those are the only places worth checking.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      You want the largest value of <strong>f</strong>, but you are not allowed
+      to wander freely — you must stay on the constraint curve. So walk the
+      curve and watch the level curve of <strong>f</strong> that passes through
+      you.
+    </p>
+    <p>
+      Almost everywhere, that level curve <em>crosses</em> the constraint. And a
+      crossing is always bad news: it means one way along the curve takes you to
+      higher ground and the other way takes you lower, so you cannot possibly be
+      at a maximum or a minimum. You can still improve.
+    </p>
+    <p>
+      The only places you can't improve are where the level curve stops crossing
+      and merely <strong>touches</strong> — where the two curves are tangent.
+      Tangent curves have parallel normals, and the normals are the two
+      gradients. That is the whole method: look for the points where
+      <strong>∇f = λ∇g</strong>. The multiplier λ is just the ratio of their
+      lengths, and it is negative when the arrows point opposite ways.
+    </p>
+    <p>
+      The graph underneath is the same story told as a one-variable problem: f
+      restricted to the curve. Its peaks and valleys sit exactly at the marked
+      candidates, which is the point — the constraint has turned a two-variable
+      problem into a one-variable one.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    levelsFor,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import { fmt, gradient, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { type Palette, alpha } from "@/lib/fun/theme"
+
+  type Point = [number, number]
+
+  interface Constraint {
+    /** Position on the curve for a parameter in [0, 1). */
+    at: (s: number) => Point
+    /** The implicit form, so the constraint has a gradient to compare against. */
+    g: (x: number, y: number) => number
+    /** Half-height of the view window that frames this curve. */
+    halfY: number
+  }
+
+  const CONSTRAINTS: Record<string, Constraint> = {
+    circle: {
+      at: (s) => [2 * Math.cos(2 * Math.PI * s), 2 * Math.sin(2 * Math.PI * s)],
+      g: (x, y) => x * x + y * y,
+      halfY: 3,
+    },
+    ellipse: {
+      at: (s) => [2 * Math.cos(2 * Math.PI * s), Math.sin(2 * Math.PI * s)],
+      g: (x, y) => (x * x) / 4 + y * y,
+      halfY: 2.4,
+    },
+    line: {
+      at: (s) => {
+        const x = -3 + 6 * s
+        return [x, (3 - x) / 2]
+      },
+      g: (x, y) => x + 2 * y,
+      halfY: 3.2,
+    },
+    squircle: {
+      at: (s) => {
+        const t = 2 * Math.PI * s
+        const c = Math.cos(t)
+        const d = Math.sin(t)
+        const r = (4 / (c ** 4 + d ** 4)) ** 0.25
+        return [r * c, r * d]
+      },
+      g: (x, y) => x ** 4 + y ** 4,
+      halfY: 2.4,
+    },
+  }
+
+  const RESOLUTION = 150
+  const STRIP_HEIGHT = 112
+  const SCAN = 720
+
+  registerFunApp('[data-fun-app="lagrange-multipliers"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let gridAspect = 0
+    /** Parameters where grad f and grad g line up, refined by bisection. */
+    let candidates: number[] = []
+
+    const invalidate = () => {
+      grid = null
+      gridAspect = 0
+      candidates = []
+    }
+
+    const formula = bindFormula(
+      root,
+      "f",
+      ["x", "y"],
+      (x, y) => x + y,
+      () => {
+        invalidate()
+        redraw()
+      },
+    )
+
+    const constraint = bindSelect(root, "constraint", () => {
+      invalidate()
+      redraw()
+    })
+
+    const position = bindSlider(root, "t", {
+      format: (v) => (v / 1000).toFixed(3),
+      onInput: redraw,
+    })
+
+    const showMarks = bindToggle(root, "marks", redraw)
+    const showLevels = bindToggle(root, "levels", redraw)
+
+    const current = () => CONSTRAINTS[constraint.value] ?? CONSTRAINTS.circle
+    const parameter = () => position.value / 1000
+
+    /** grad f x grad g: zero exactly where the two gradients are parallel. */
+    function alignment(s: number): number {
+      const f = formula.fn as (x: number, y: number) => number
+      const c = current()
+      const [x, y] = c.at(s)
+      const [fx, fy] = gradient(f, x, y)
+      const [gx, gy] = gradient(c.g, x, y)
+      return fx * gy - fy * gx
+    }
+
+    function findCandidates(): number[] {
+      const found: number[] = []
+      let previous = alignment(0)
+      for (let i = 1; i <= SCAN; i++) {
+        const s = i / SCAN
+        const value = alignment(s)
+        if (
+          Number.isFinite(previous) &&
+          Number.isFinite(value) &&
+          previous * value < 0
+        ) {
+          // Bisect the bracket; twenty halvings is well past pixel accuracy.
+          let low = (i - 1) / SCAN
+          let high = s
+          let lowValue = previous
+          for (let k = 0; k < 20; k++) {
+            const mid = (low + high) / 2
+            const midValue = alignment(mid)
+            if (lowValue * midValue <= 0) {
+              high = mid
+            } else {
+              low = mid
+              lowValue = midValue
+            }
+          }
+          found.push((low + high) / 2)
+        }
+        previous = value
+      }
+      return found
+    }
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown: (info) => grab(info.x, info.y),
+      onMove: (info) => grab(info.x, info.y),
+    })
+
+    /** Snap to the parameter whose point is nearest the pointer. */
+    function grab(sx: number, sy: number) {
+      const c = current()
+      const wx = plot.wx(sx)
+      const wy = plot.wy(sy)
+      let best = 0
+      let bestDistance = Number.POSITIVE_INFINITY
+      for (let i = 0; i < 480; i++) {
+        const s = i / 480
+        const [x, y] = c.at(s)
+        const distance = (x - wx) ** 2 + (y - wy) ** 2
+        if (distance < bestDistance) {
+          bestDistance = distance
+          best = s
+        }
+      }
+      position.set(Math.round(best * 1000))
+      redraw()
+    }
+
+    function curvePoints(c: Constraint): number[] {
+      const points: number[] = []
+      const steps = 400
+      for (let i = 0; i <= steps; i++) {
+        const [x, y] = c.at(i / steps)
+        points.push(x, y)
+      }
+      return points
+    }
+
+    function drawStrip(
+      ctx: CanvasRenderingContext2D,
+      palette: Palette,
+      width: number,
+      top: number,
+      c: Constraint,
+    ) {
+      const f = formula.fn as (x: number, y: number) => number
+      const padX = 16
+      const innerWidth = width - padX * 2
+      const innerTop = top + 26
+      const innerHeight = STRIP_HEIGHT - 42
+
+      ctx.beginPath()
+      ctx.moveTo(0, top)
+      ctx.lineTo(width, top)
+      ctx.strokeStyle = alpha(palette.border, 1)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      const samples: number[] = []
+      let low = Number.POSITIVE_INFINITY
+      let high = Number.NEGATIVE_INFINITY
+      for (let i = 0; i <= 400; i++) {
+        const [x, y] = c.at(i / 400)
+        const value = f(x, y)
+        samples.push(value)
+        if (Number.isFinite(value)) {
+          low = Math.min(low, value)
+          high = Math.max(high, value)
+        }
+      }
+      if (!Number.isFinite(low) || high === low) {
+        low = low - 1
+        high = low + 2
+      }
+
+      const px = (i: number) => padX + (i / 400) * innerWidth
+      const py = (value: number) =>
+        innerTop + innerHeight - ((value - low) / (high - low)) * innerHeight
+
+      ctx.beginPath()
+      samples.forEach((value, i) => {
+        if (!Number.isFinite(value)) return
+        if (i === 0) ctx.moveTo(px(i), py(value))
+        else ctx.lineTo(px(i), py(value))
+      })
+      ctx.strokeStyle = palette.accent
+      ctx.lineWidth = 2
+      ctx.lineJoin = "round"
+      ctx.stroke()
+
+      if (showMarks.on) {
+        for (const s of candidates) {
+          const [x, y] = c.at(s)
+          const cx = px(s * 400)
+          ctx.beginPath()
+          ctx.moveTo(cx, innerTop)
+          ctx.lineTo(cx, innerTop + innerHeight)
+          ctx.strokeStyle = alpha(palette.primary, 0.65)
+          ctx.lineWidth = 1.5
+          ctx.setLineDash([3, 3])
+          ctx.stroke()
+          ctx.setLineDash([])
+          ctx.beginPath()
+          ctx.arc(cx, py(f(x, y)), 4, 0, Math.PI * 2)
+          ctx.fillStyle = palette.primary
+          ctx.fill()
+        }
+      }
+
+      const s = parameter()
+      const [cx, cy] = c.at(s)
+      const markerX = px(s * 400)
+      ctx.beginPath()
+      ctx.arc(markerX, py(f(cx, cy)), 5, 0, Math.PI * 2)
+      ctx.fillStyle = palette.destructive
+      ctx.fill()
+
+      plot.screenText("f along the constraint", padX, top + 6, {
+        color: palette["muted-foreground"],
+        size: 11,
+        align: "left",
+        baseline: "top",
+      })
+      plot.screenText(`max ${fmt(high)}`, width - padX, top + 6, {
+        color: palette["muted-foreground"],
+        size: 11,
+        align: "right",
+        baseline: "top",
+      })
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const f = formula.fn as (x: number, y: number) => number
+        const c = current()
+        const mapHeight = height - STRIP_HEIGHT
+        const aspect = Math.round((width / mapHeight) * 50) / 50
+        const bounds = {
+          xMin: -c.halfY * aspect,
+          xMax: c.halfY * aspect,
+          yMin: -c.halfY,
+          yMax: c.halfY,
+        }
+        plot.fit(width, mapHeight, bounds)
+
+        if (!grid || gridAspect !== aspect) {
+          gridAspect = aspect
+          grid = sampleGrid(
+            f,
+            bounds,
+            Math.min(320, Math.round(RESOLUTION * aspect)),
+            RESOLUTION,
+          )
+          levels = levelsFor(grid, 13)
+        }
+        if (candidates.length === 0) candidates = findCandidates()
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, mapHeight)
+        ctx.clip()
+
+        plot.grid(alpha(palette.foreground, 0.07))
+        plot.axes(alpha(palette.foreground, 0.25))
+
+        if (showLevels.on) {
+          for (const level of levels) {
+            plot.segments(contourSegments(grid, level), {
+              color: alpha(palette.accent, 0.32),
+              width: 1,
+            })
+          }
+        }
+
+        const s = parameter()
+        const [x, y] = c.at(s)
+        const value = f(x, y)
+
+        // The level curve of f through the point: the one that either crosses
+        // the constraint (improvable) or kisses it (a candidate).
+        if (Number.isFinite(value)) {
+          plot.segments(contourSegments(grid, value), {
+            color: palette.accent,
+            width: 2.5,
+          })
+        }
+
+        plot.polyline(curvePoints(c), { color: palette.foreground, width: 2.5 })
+
+        if (showMarks.on) {
+          for (const candidate of candidates) {
+            const [mx, my] = c.at(candidate)
+            plot.disc(mx, my, 6, {
+              fill: palette.primary,
+              stroke: palette.background,
+              width: 2,
+            })
+          }
+        }
+
+        const [fx, fy] = gradient(f, x, y)
+        const [gx, gy] = gradient(c.g, x, y)
+        const fNorm = hypot(fx, fy)
+        const gNorm = hypot(gx, gy)
+        const reach = c.halfY * 0.3
+
+        if (gNorm > 1e-9) {
+          plot.arrow(x, y, x + (gx / gNorm) * reach, y + (gy / gNorm) * reach, {
+            color: palette.primary,
+            width: 3.5,
+          })
+        }
+        if (fNorm > 1e-9) {
+          plot.arrow(x, y, x + (fx / fNorm) * reach, y + (fy / fNorm) * reach, {
+            color: palette.destructive,
+            width: 3.5,
+          })
+        }
+        plot.disc(x, y, 6, {
+          fill: palette.foreground,
+          stroke: palette.background,
+          width: 2,
+        })
+
+        ctx.restore()
+
+        const lambda =
+          gNorm > 1e-9 ? (fx * gx + fy * gy) / (gNorm * gNorm) : Number.NaN
+        const cross = fx * gy - fy * gx
+        const parallel =
+          fNorm * gNorm > 1e-9 ? Math.abs(cross) / (fNorm * gNorm) : 1
+        const tangent = parallel < 0.02
+
+        const lines = [
+          `f = ${fmt(value)}`,
+          `grad f = (${fmt(fx)}, ${fmt(fy)})`,
+          `grad g = (${fmt(gx)}, ${fmt(gy)})`,
+          `lambda = ${fmt(lambda)}`,
+        ]
+        plot.panel(14, 14, 190, lines.length * 18 + 34, palette)
+        lines.forEach((line, index) => {
+          plot.screenText(line, 24, 28 + index * 18, {
+            color: palette.foreground,
+            size: 12,
+            align: "left",
+            mono: true,
+          })
+        })
+        plot.screenText(
+          tangent ? "tangent: a candidate" : "crossing: you can still improve",
+          24,
+          28 + lines.length * 18 + 4,
+          {
+            color: tangent ? palette.primary : palette["muted-foreground"],
+            size: 11.5,
+            align: "left",
+            weight: tangent ? "600" : "450",
+          },
+        )
+
+        drawStrip(ctx, palette, width, mapHeight, c)
+      },
+    })
+
+    const disposeControls = disposeAll([
+      formula,
+      constraint,
+      position,
+      showMarks,
+      showLevels,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

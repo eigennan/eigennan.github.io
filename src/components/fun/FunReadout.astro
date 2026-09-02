@@ -1,0 +1,16 @@
+---
+interface Props {
+  rows: { name: string; label: string }[]
+}
+
+const { rows } = Astro.props
+---
+
+<dl class="fun-readout" aria-live="polite">
+  {rows.map((row) => (
+    <div class="fun-readout-row">
+      <dt>{row.label}</dt>
+      <dd data-fun-readout={row.name}>—</dd>
+    </div>
+  ))}
+</dl>

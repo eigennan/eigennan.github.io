@@ -1,0 +1,329 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const setups = [
+  { value: "single", label: "z(x, y),  x(t),  y(t)" },
+  { value: "double", label: "z(x, y),  x(s, t),  y(s, t)" },
+  { value: "deep", label: "w(z),  z(x, y),  x(t),  y(t)" },
+]
+---
+
+<FunStage
+  slug="chain-rule-tree"
+  ratio="3 / 2"
+  narrowRatio="4 / 5"
+  label="A tree of variable dependencies, with each route from the top to the bottom highlighted as one term of the chain rule."
+>
+  <Fragment slot="controls">
+    <FunSelect name="setup" label="How things depend" options={setups} />
+    <div class="fun-toggles">
+      <FunToggle name="all" label="Collect every route" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "target", label: "computing" },
+        { name: "routes", label: "routes through the tree" },
+        { name: "formula", label: "collected so far" },
+      ]}
+    />
+    <p class="fun-note">
+      Click a route to collect it. The chain rule is finished when you have them
+      all.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      When one quantity depends on others that depend on others in turn, the
+      chain rule tells you how a nudge at the bottom reaches the top. The tree
+      makes it mechanical:
+      <strong
+        >every route from top to bottom is one term, and the term is the product
+        of the derivatives along it</strong
+      >. Add the routes together and you're done.
+    </p>
+    <p>
+      That's the entire rule. In one variable there is only ever one route, so
+      the sum has one term and the rule looks like a single product — which is
+      why the multivariable version can seem like a different theorem. It isn't;
+      there are just more ways down.
+    </p>
+    <p>
+      The <strong>sum</strong> is doing something specific. Nudging t changes x
+      <em>and</em>
+      changes y, and both of those changes push on z independently. Each
+      contribution has to be counted, so the routes add. Along a single route
+      the derivatives multiply instead, because there the changes are passed
+      along in series — a nudge in t becomes a nudge in x becomes a nudge in z.
+    </p>
+    <p>
+      Once you're reading the tree, the notation stops mattering. Draw the
+      dependencies, count the routes, and you can write down chain rules for
+      arrangements you've never seen before without remembering any formula.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import { bindSelect, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha } from "@/lib/fun/theme"
+
+  interface Node {
+    id: string
+    label: string
+    /** Column 0 is the top of the tree. */
+    row: number
+    column: number
+  }
+
+  interface Setup {
+    nodes: Node[]
+    edges: [string, string, string][]
+    /** Each route, as the list of edges it uses, plus its term. */
+    routes: { edges: number[]; term: string }[]
+    target: string
+  }
+
+  const SETUPS: Record<string, Setup> = {
+    single: {
+      nodes: [
+        { id: "z", label: "z", row: 0, column: 0 },
+        { id: "x", label: "x", row: 1, column: -1 },
+        { id: "y", label: "y", row: 1, column: 1 },
+        { id: "t", label: "t", row: 2, column: 0 },
+      ],
+      edges: [
+        ["z", "x", "∂z/∂x"],
+        ["z", "y", "∂z/∂y"],
+        ["x", "t", "dx/dt"],
+        ["y", "t", "dy/dt"],
+      ],
+      routes: [
+        { edges: [0, 2], term: "(∂z/∂x)(dx/dt)" },
+        { edges: [1, 3], term: "(∂z/∂y)(dy/dt)" },
+      ],
+      target: "dz/dt",
+    },
+    double: {
+      nodes: [
+        { id: "z", label: "z", row: 0, column: 0 },
+        { id: "x", label: "x", row: 1, column: -1 },
+        { id: "y", label: "y", row: 1, column: 1 },
+        { id: "s", label: "s", row: 2, column: -1.6 },
+        { id: "t", label: "t", row: 2, column: 1.6 },
+      ],
+      edges: [
+        ["z", "x", "∂z/∂x"],
+        ["z", "y", "∂z/∂y"],
+        ["x", "s", "∂x/∂s"],
+        ["x", "t", "∂x/∂t"],
+        ["y", "s", "∂y/∂s"],
+        ["y", "t", "∂y/∂t"],
+      ],
+      // Only the routes ending at s count toward ∂z/∂s.
+      routes: [
+        { edges: [0, 2], term: "(∂z/∂x)(∂x/∂s)" },
+        { edges: [1, 4], term: "(∂z/∂y)(∂y/∂s)" },
+      ],
+      target: "∂z/∂s",
+    },
+    deep: {
+      nodes: [
+        { id: "w", label: "w", row: 0, column: 0 },
+        { id: "z", label: "z", row: 1, column: 0 },
+        { id: "x", label: "x", row: 2, column: -1 },
+        { id: "y", label: "y", row: 2, column: 1 },
+        { id: "t", label: "t", row: 3, column: 0 },
+      ],
+      edges: [
+        ["w", "z", "dw/dz"],
+        ["z", "x", "∂z/∂x"],
+        ["z", "y", "∂z/∂y"],
+        ["x", "t", "dx/dt"],
+        ["y", "t", "dy/dt"],
+      ],
+      routes: [
+        { edges: [0, 1, 3], term: "(dw/dz)(∂z/∂x)(dx/dt)" },
+        { edges: [0, 2, 4], term: "(dw/dz)(∂z/∂y)(dy/dt)" },
+      ],
+      target: "dw/dt",
+    },
+  }
+
+  registerFunApp('[data-fun-app="chain-rule-tree"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let collected = new Set<number>()
+    /** Screen positions of the nodes, refreshed each frame for hit testing. */
+    let placed: { id: string; x: number; y: number }[] = []
+
+    const setup = bindSelect(root, "setup", () => {
+      collected = new Set()
+      redraw()
+    })
+    const collectAll = bindToggle(root, "all", (on) => {
+      const routes = current().routes
+      collected = on ? new Set(routes.map((_, i) => i)) : new Set()
+      redraw()
+    })
+
+    const current = () => SETUPS[setup.value] ?? SETUPS.single
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        // Clicking any node on a route toggles that route.
+        const { routes, edges } = current()
+        let best = -1
+        let bestDistance = 34
+        placed.forEach((node) => {
+          const d = Math.hypot(info.x - node.x, info.y - node.y)
+          if (d >= bestDistance) return
+          const index = routes.findIndex((route) =>
+            route.edges.some(
+              (e) => edges[e][0] === node.id || edges[e][1] === node.id,
+            ),
+          )
+          const owned = routes
+            .map((route, i) =>
+              route.edges.some(
+                (e) => edges[e][0] === node.id || edges[e][1] === node.id,
+              )
+                ? i
+                : -1,
+            )
+            .filter((i) => i >= 0)
+          // A node shared by every route (like the top) tells us nothing.
+          if (owned.length !== 1) return
+          bestDistance = d
+          best = index
+        })
+        if (best < 0) return false
+        if (collected.has(best)) collected.delete(best)
+        else collected.add(best)
+        collectAll.set(collected.size === routes.length)
+        redraw()
+      },
+    })
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const { nodes, edges, routes, target } = current()
+        plot.fit(width, height, { xMin: -1, xMax: 1, yMin: -1, yMax: 1 })
+
+        const rows = Math.max(...nodes.map((node) => node.row))
+        const marginY = 64
+        const marginX = 90
+        placed = nodes.map((node) => ({
+          id: node.id,
+          x: width / 2 + (node.column * (width / 2 - marginX)) / 1.9,
+          y: marginY + (node.row / rows) * (height - marginY * 2),
+        }))
+        const find = (id: string) => placed.find((node) => node.id === id)
+
+        // Edges: lit if they belong to a route that has been collected.
+        edges.forEach(([from, to, label], index) => {
+          const a = find(from)
+          const b = find(to)
+          if (!a || !b) return
+          const lit = routes.some(
+            (route, i) => collected.has(i) && route.edges.includes(index),
+          )
+          ctx.beginPath()
+          ctx.moveTo(a.x, a.y)
+          ctx.lineTo(b.x, b.y)
+          ctx.strokeStyle = lit
+            ? palette.destructive
+            : alpha(palette["muted-foreground"], 0.55)
+          ctx.lineWidth = lit ? 3.5 : 1.75
+          ctx.stroke()
+
+          plot.screenText(label, (a.x + b.x) / 2, (a.y + b.y) / 2, {
+            color: lit ? palette.destructive : palette["muted-foreground"],
+            size: 12,
+            weight: lit ? "600" : "450",
+            plate: alpha(palette.background, 0.9),
+          })
+        })
+
+        nodes.forEach((node) => {
+          const at = find(node.id)
+          if (!at) return
+          ctx.beginPath()
+          ctx.arc(at.x, at.y, 22, 0, Math.PI * 2)
+          ctx.fillStyle = palette.background
+          ctx.fill()
+          ctx.strokeStyle = palette.foreground
+          ctx.lineWidth = 2
+          ctx.stroke()
+          plot.screenText(node.label, at.x, at.y, {
+            color: palette.foreground,
+            size: 17,
+            weight: "600",
+          })
+        })
+
+        setReadout("target", target)
+        setReadout("routes", `${collected.size} of ${routes.length} collected`)
+        const terms = routes
+          .map((route, i) => (collected.has(i) ? route.term : null))
+          .filter((term): term is string => term !== null)
+        setReadout(
+          "formula",
+          terms.length === 0
+            ? "nothing yet — click a route"
+            : `${target} = ${terms.join(" + ")}${
+                terms.length === routes.length ? "" : " + …"
+              }`,
+        )
+
+        if (collected.size === routes.length) {
+          const label = `every route collected — this is the chain rule for ${target}`
+          const panelWidth = Math.min(width - 28, 420)
+          plot.panel(
+            (width - panelWidth) / 2,
+            height - 46,
+            panelWidth,
+            32,
+            palette,
+          )
+          plot.screenText(label, width / 2, height - 30, {
+            color: palette.primary,
+            size: 12,
+            weight: "600",
+          })
+        }
+      },
+    })
+
+    const disposeControls = disposeAll([setup, collectAll])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

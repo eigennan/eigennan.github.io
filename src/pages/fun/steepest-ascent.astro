@@ -1,0 +1,19 @@
+---
+import { findFunApp } from "@/lib/fun/registry"
+import CommonLayout from "@/layouts/CommonLayout.astro"
+import SteepestAscent from "@/components/fun/SteepestAscent.astro"
+
+const app = findFunApp("steepest-ascent")
+---
+
+<CommonLayout
+  title={app.title}
+  description={app.blurb}
+  prose={false}
+  breadcrumbs={[
+    { label: "Fun", href: "/fun", icon: "mingcute:sparkles-line" },
+    { label: app.title, icon: app.icon },
+  ]}
+>
+  <SteepestAscent />
+</CommonLayout>

@@ -1,0 +1,365 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const surfaces = [
+  { value: "bowl", label: "Bowl  x² + 2y²" },
+  { value: "saddle", label: "Saddle  x² − y²" },
+  { value: "ripple", label: "Ripple  sin x cos y" },
+  { value: "hill", label: "Gaussian hill" },
+  { value: "monkey", label: "Monkey saddle" },
+]
+---
+
+<FunStage
+  slug="zooming-in"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A patch of a curved surface with the flat tangent plane laid across it, shrinking together as the view zooms in on one point."
+>
+  <Fragment slot="controls">
+    <FunSelect name="surface" label="Surface" options={surfaces} />
+    <FunSlider
+      name="zoom"
+      label="Zoom"
+      min={0}
+      max={300}
+      step={1}
+      value={40}
+      display="1.0×"
+    />
+    <FunSlider
+      name="ax"
+      label="Point x"
+      min={-150}
+      max={150}
+      step={1}
+      value={70}
+      display="0.70"
+    />
+    <FunSlider
+      name="ay"
+      label="Point y"
+      min={-150}
+      max={150}
+      step={1}
+      value={-50}
+      display="-0.50"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="plane" label="Tangent plane" pressed />
+      <FunToggle name="quadratic" label="Second order" />
+      <FunToggle name="slices" label="Slices" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "width", label: "half-width of the patch" },
+        { name: "linear", label: "worst gap from the plane" },
+        { name: "ratio", label: "that gap ÷ h²" },
+        { name: "quad", label: "worst gap from the quadratic" },
+      ]}
+    />
+    <p class="fun-note">
+      Zoom in and the gap collapses, but the gap ÷ h² settles on a constant.
+      That constant is the curvature you're leaving out.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Differentiable means one thing: <strong>locally flat</strong>. Zoom in far
+      enough on any point of a smooth surface and it becomes indistinguishable
+      from a plane — and that plane is the tangent plane. Everything else about
+      derivatives in several variables is bookkeeping around this one fact.
+    </p>
+    <p>
+      The two slices show where the plane comes from. Hold y fixed and you get a
+      curve whose slope is <strong>f<sub>x</sub></strong>; hold x fixed and you
+      get another with slope <strong>f<sub>y</sub></strong>. Those two tangent
+      lines cross at the point, and a plane is exactly what you get by spanning
+      them. That's why two partial derivatives suffice.
+    </p>
+    <p>
+      Watch the middle readouts rather than the picture, though, because they
+      say something the picture can't. The gap between surface and plane goes to
+      zero — but so would a bad approximation. What makes this one
+      <em>the</em>
+      tangent plane is that the gap dies faster than the patch shrinks: divide
+      it by <strong>h</strong> and it still goes to zero. Divide by
+      <strong>h²</strong>
+      and it settles on a constant instead, which is the precise sense in which
+      the error is second order.
+    </p>
+    <p>
+      That leftover constant is curvature, and it is exactly what the
+      second-order term captures. Turn the quadratic on and its own gap dies
+      like h³ instead — one order better, which is what buying one more term in
+      the Taylor series gets you.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { type Scalar2, fmt, gradient, hessian } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { parametricMesh } from "@/lib/fun/surface3d"
+
+  const SURFACES: Record<string, Scalar2> = {
+    bowl: (x, y) => x * x + 2 * y * y,
+    saddle: (x, y) => x * x - y * y,
+    ripple: (x, y) => Math.sin(x) * Math.cos(y),
+    hill: (x, y) => 2 * Math.exp(-(x * x) - y * y),
+    monkey: (x, y) => x ** 3 - 3 * x * y * y,
+  }
+
+  registerFunApp('[data-fun-app="zooming-in"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const surface = bindSelect(root, "surface", refresh)
+    const zoom = bindSlider(root, "zoom", {
+      format: (v) => `${(10 ** (v / 100)).toFixed(1)}×`,
+      onInput: refresh,
+    })
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const ax = bindSlider(root, "ax", { format: hundredths, onInput: refresh })
+    const ay = bindSlider(root, "ay", { format: hundredths, onInput: refresh })
+    const showPlane = bindToggle(root, "plane", refresh)
+    const showQuadratic = bindToggle(root, "quadratic", refresh)
+    const showSlices = bindToggle(root, "slices", refresh)
+
+    const f = () => SURFACES[surface.value] ?? SURFACES.bowl
+    /** Half-width of the patch; the zoom slider is a decade scale. */
+    const halfWidth = () => 1.2 / 10 ** (zoom.value / 100)
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const evaluate = f()
+      const a = ax.value / 100
+      const b = ay.value / 100
+      const h = halfWidth()
+
+      const base = evaluate(a, b)
+      const [fx, fy] = gradient(evaluate, a, b)
+      const [fxx, fxy, fyy] = hessian(evaluate, a, b, Math.max(h * 0.1, 1e-4))
+
+      const linear = (x: number, y: number) =>
+        base + fx * (x - a) + fy * (y - b)
+      const quadratic = (x: number, y: number) => {
+        const dx = x - a
+        const dy = y - b
+        return (
+          linear(x, y) +
+          0.5 * (fxx * dx * dx + 2 * fxy * dx * dy + fyy * dy * dy)
+        )
+      }
+
+      addLights(three, scene, 1)
+
+      // Everything is drawn relative to the point and scaled up by the zoom,
+      // so the camera never has to move and the patch always fills the frame.
+      const lift = (value: number) => (value - base) / h
+      const domain = { uMin: a - h, uMax: a + h, vMin: b - h, vMax: b + h }
+      const project =
+        (g: Scalar2) =>
+        (u: number, v: number): [number, number, number] => [
+          (u - a) / h,
+          (v - b) / h,
+          lift(g(u, v)),
+        ]
+
+      const { geometry } = parametricMesh(
+        three,
+        project(evaluate),
+        domain,
+        70,
+        70,
+      )
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            color: palette.accent,
+            roughness: 0.85,
+            side: three.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 2,
+            polygonOffsetUnits: 2,
+          }),
+        ),
+      )
+
+      if (showPlane.on) {
+        const { geometry: sheet } = parametricMesh(
+          three,
+          project(linear),
+          domain,
+          2,
+          2,
+        )
+        scene.add(
+          new three.Mesh(
+            sheet,
+            new three.MeshStandardMaterial({
+              color: palette.primary,
+              roughness: 0.9,
+              side: three.DoubleSide,
+              transparent: true,
+              opacity: 0.5,
+            }),
+          ),
+        )
+      }
+
+      if (showQuadratic.on) {
+        const { geometry: bowl } = parametricMesh(
+          three,
+          project(quadratic),
+          domain,
+          50,
+          50,
+        )
+        scene.add(
+          new three.Mesh(
+            bowl,
+            new three.MeshStandardMaterial({
+              color: palette.destructive,
+              roughness: 0.9,
+              side: three.DoubleSide,
+              transparent: true,
+              opacity: 0.4,
+            }),
+          ),
+        )
+      }
+
+      if (showSlices.on) {
+        // The two traces through the point, and the tangent lines that span
+        // into the plane.
+        for (const along of ["x", "y"] as const) {
+          const trace: number[] = []
+          const tangent: number[] = []
+          for (let i = 0; i <= 90; i++) {
+            const t = -1 + (2 * i) / 90
+            const x = along === "x" ? a + t * h : a
+            const y = along === "y" ? b + t * h : b
+            trace.push((x - a) / h, (y - b) / h, lift(evaluate(x, y)))
+            tangent.push((x - a) / h, (y - b) / h, lift(linear(x, y)))
+          }
+          for (const [points, color] of [
+            [trace, palette.foreground],
+            [tangent, palette.primary],
+          ] as const) {
+            const lineGeometry = new three.BufferGeometry()
+            lineGeometry.setAttribute(
+              "position",
+              new three.Float32BufferAttribute(points, 3),
+            )
+            scene.add(
+              new three.Line(
+                lineGeometry,
+                new three.LineBasicMaterial({ color }),
+              ),
+            )
+          }
+        }
+      }
+
+      const dot = new three.Mesh(
+        new three.SphereGeometry(0.045, 20, 14),
+        new three.MeshStandardMaterial({
+          color: palette.destructive,
+          roughness: 0.4,
+        }),
+      )
+      dot.position.set(0, 0, 0)
+      scene.add(dot)
+
+      // The worst gap over the patch, which is what "approximates" has to mean.
+      let worstLinear = 0
+      let worstQuadratic = 0
+      for (let i = 0; i <= 40; i++) {
+        for (let j = 0; j <= 40; j++) {
+          const x = a - h + (2 * h * i) / 40
+          const y = b - h + (2 * h * j) / 40
+          const actual = evaluate(x, y)
+          if (!Number.isFinite(actual)) continue
+          worstLinear = Math.max(worstLinear, Math.abs(actual - linear(x, y)))
+          worstQuadratic = Math.max(
+            worstQuadratic,
+            Math.abs(actual - quadratic(x, y)),
+          )
+        }
+      }
+
+      setReadout("width", h.toExponential(2))
+      setReadout("linear", worstLinear.toExponential(3))
+      setReadout("ratio", fmt(worstLinear / (h * h), 4))
+      setReadout("quad", worstQuadratic.toExponential(3))
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -0.95, elevation: 0.36, distance: 4.4 },
+      distanceRange: [2, 12],
+      build: buildScene,
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the error ratios still make the point on their own.
+      })
+
+    const disposeControls = disposeAll([
+      surface,
+      zoom,
+      ax,
+      ay,
+      showPlane,
+      showQuadratic,
+      showSlices,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

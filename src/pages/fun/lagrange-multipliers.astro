@@ -1,0 +1,19 @@
+---
+import { findFunApp } from "@/lib/fun/registry"
+import CommonLayout from "@/layouts/CommonLayout.astro"
+import LagrangeMultipliers from "@/components/fun/LagrangeMultipliers.astro"
+
+const app = findFunApp("lagrange-multipliers")
+---
+
+<CommonLayout
+  title={app.title}
+  description={app.blurb}
+  prose={false}
+  breadcrumbs={[
+    { label: "Fun", href: "/fun", icon: "mingcute:sparkles-line" },
+    { label: app.title, icon: app.icon },
+  ]}
+>
+  <LagrangeMultipliers />
+</CommonLayout>

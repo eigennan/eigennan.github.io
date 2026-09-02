@@ -1,0 +1,374 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const fields = [
+  { value: "swirl", label: "Swirl  (−y, x, 0)" },
+  { value: "reverse", label: "Reversed swirl  (y, −x, 0)" },
+  { value: "cubic", label: "Stiffening swirl  (−y³, x³, 0)" },
+  { value: "diagonal", label: "Diagonal curl  (z, x, y)" },
+  { value: "gradient", label: "Gradient field  (x, y, z)" },
+]
+
+const caps = [
+  { value: "disk", label: "Flat disk" },
+  { value: "dome", label: "Dome" },
+  { value: "cone", label: "Cone" },
+  { value: "bowl", label: "Deep bowl" },
+  { value: "wobble", label: "Wobbly sheet" },
+]
+---
+
+<FunStage
+  slug="stokes-theorem"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A single closed loop of wire with a surface stretched across it, tinted by how much of the field's curl passes through each patch, alongside the circulation measured around the loop itself."
+>
+  <Fragment slot="controls">
+    <FunSelect name="field" label="Field" options={fields} />
+    <FunSelect
+      name="cap"
+      label="Surface stretched over the loop"
+      options={caps}
+    />
+    <div class="fun-toggles">
+      <FunToggle name="curlArrows" label="Curl arrows" pressed />
+      <FunToggle name="fieldArrows" label="Field on the loop" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "loop", label: "∮ F · dr  around the loop" },
+        { name: "cap", label: "∬ curl F · dS  through the cap" },
+        { name: "gap", label: "difference" },
+        { name: "area", label: "area of this cap" },
+      ]}
+    />
+    <p class="fun-note">
+      The loop never moves. Change the cap and only the last number changes —
+      the first two stay locked together.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Bend a loop of wire and dip it in a field. Walk once around the wire,
+      adding up how much the field pushes you along as you go: that's the
+      <strong>circulation</strong>. Now stretch a soap film across the same wire
+      and ask how much <strong>curl</strong> pokes through the film.
+    </p>
+    <p>
+      Stokes' theorem says those two numbers are the same. Not approximately,
+      and not just for the obvious flat film — for <em>any</em> surface with
+      that wire as its edge. Swap the flat disk for a dome, a cone, a deep bowl,
+      a wobbly sheet: the areas differ wildly, the tinting redistributes
+      completely, and the total never moves.
+    </p>
+    <p>
+      It is the same bookkeeping argument as Green's theorem, which is the flat
+      case of exactly this. Chop the film into tiny cells; each cell's own
+      little circulation is curl · n times its area; adjacent cells share edges
+      and walk them in opposite directions, so everything interior cancels. All
+      that survives is the boundary — and the boundary is the wire, which never
+      changed. The film in between was never really the point.
+    </p>
+    <p>
+      One consequence worth noticing: pick the gradient field and every number
+      drops to zero. A field that is the gradient of something has no curl at
+      all, so it can have no circulation around any closed loop — which is
+      precisely what it means for work to be path-independent.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { bindSelect, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { type Arrow3D, arrowField } from "@/lib/fun/arrows3d"
+  import {
+    type Curve3,
+    type Field3,
+    type Surface,
+    type Vec3,
+    circulation,
+    curl3,
+    fluxIntegral,
+    fluxThrough,
+    norm3,
+    parametricMesh,
+  } from "@/lib/fun/surface3d"
+
+  const FIELDS: Record<string, Field3> = {
+    swirl: (x, y) => [-y, x, 0],
+    reverse: (x, y) => [y, -x, 0],
+    cubic: (x, y) => [-(y ** 3), x ** 3, 0],
+    diagonal: (x, y, z) => [z, x, y],
+    gradient: (x, y, z) => [x, y, z],
+  }
+
+  /**
+   * Every cap is a graph over the same unit disk, written with `u` radial and
+   * `v` angular so r_u x r_v points upward. Each one satisfies z = 0 at u = 1,
+   * so they all share the unit circle as their boundary — which is the entire
+   * premise of the demonstration.
+   */
+  const CAPS: Record<string, (u: number, v: number) => number> = {
+    disk: () => 0,
+    dome: (u) => 1.25 * (1 - u * u),
+    cone: (u) => 1.4 * (1 - u),
+    bowl: (u) => -1.5 * (1 - u * u),
+    wobble: (u, v) => (1 - u * u) * (0.85 + 0.75 * Math.sin(3 * v)),
+  }
+
+  const MESH_U = 56
+  const MESH_V = 112
+  /**
+   * The comparison is the whole point, so the reported integral is computed on
+   * a much finer grid than the one that gets shaded. At display resolution the
+   * midpoint rule's own error is large enough to show up in the "difference"
+   * row and read as the theorem failing, which it isn't.
+   */
+  const QUAD_U = 360
+  const QUAD_V = 720
+  /** The shared boundary: the unit circle, traversed counterclockwise. */
+  const LOOP: Curve3 = (t) => [Math.cos(t), Math.sin(t), 0]
+
+  registerFunApp('[data-fun-app="stokes-theorem"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const field = bindSelect(root, "field", refresh)
+    const cap = bindSelect(root, "cap", refresh)
+    const showCurl = bindToggle(root, "curlArrows", refresh)
+    const showField = bindToggle(root, "fieldArrows", refresh)
+
+    const currentField = () => FIELDS[field.value] ?? FIELDS.swirl
+
+    function currentCap(): Surface {
+      const height = CAPS[cap.value] ?? CAPS.disk
+      return (u, v) => [u * Math.cos(v), u * Math.sin(v), height(u, v)]
+    }
+
+    const DOMAIN = { uMin: 0, uMax: 1, vMin: 0, vMax: Math.PI * 2 }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const F = currentField()
+      const curlField: Field3 = (x, y, z) => curl3(F, x, y, z)
+
+      addLights(three, scene, 0.95)
+      scene.add(makeAxes(three, 1.9, palette["muted-foreground"], 1.8))
+
+      const surface = currentCap()
+      const { geometry, faces } = parametricMesh(
+        three,
+        surface,
+        DOMAIN,
+        MESH_U,
+        MESH_V,
+      )
+      const through = fluxThrough(curlField, faces)
+      const capTotal = fluxIntegral(curlField, surface, DOMAIN, QUAD_U, QUAD_V)
+      const around = circulation(F, LOOP, 0, Math.PI * 2)
+
+      const colors = new Float32Array(
+        geometry.getAttribute("position").count * 3,
+      )
+      const positive = new three.Color(palette.primary)
+      const negative = new three.Color(palette.accent)
+      const neutral = new three.Color(palette.background)
+      const index = geometry.getIndex()
+
+      if (index) {
+        for (let q = 0; q < faces.length; q++) {
+          const strength = clamp(
+            Math.abs(through.perFace[q]) / through.peak,
+            0,
+            1,
+          )
+          const tone = neutral
+            .clone()
+            .lerp(
+              through.perFace[q] >= 0 ? positive : negative,
+              0.18 + 0.82 * strength,
+            )
+          for (let k = 0; k < 6; k++) {
+            const vertex = index.getX(q * 6 + k)
+            colors[vertex * 3] = tone.r
+            colors[vertex * 3 + 1] = tone.g
+            colors[vertex * 3 + 2] = tone.b
+          }
+        }
+      }
+      geometry.setAttribute("color", new three.BufferAttribute(colors, 3))
+
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.86,
+            metalness: 0,
+            side: three.DoubleSide,
+            transparent: true,
+            opacity: 0.94,
+          }),
+        ),
+      )
+
+      if (showCurl.on) addCurlArrows(handle, faces, through.peak, curlField)
+      addLoop(handle, F)
+
+      setReadout("loop", fmt(around, 4))
+      setReadout("cap", fmt(capTotal, 4))
+      setReadout("gap", fmt(Math.abs(around - capTotal), 4))
+      setReadout(
+        "area",
+        fmt(
+          faces.reduce((sum, face) => sum + face.area, 0),
+          4,
+        ),
+      )
+    }
+
+    /** Curl vectors on the cap, so "poking through" is something you can see. */
+    function addCurlArrows(
+      handle: Scene3DHandle,
+      faces: { center: Vec3; normal: Vec3; area: number }[],
+      peak: number,
+      curlField: Field3,
+    ) {
+      const { three, scene, palette } = handle
+      const arrows: Arrow3D[] = []
+      const strideU = Math.max(1, Math.round(MESH_U / 5))
+      const strideV = Math.max(1, Math.round(MESH_V / 12))
+
+      for (let j = 0; j < MESH_V; j += strideV) {
+        for (let i = Math.round(strideU / 2); i < MESH_U; i += strideU) {
+          // Skip the innermost ring: on a polar grid every angular sample
+          // converges there and the arrows pile into an unreadable knot.
+          if (i / MESH_U < 0.18) continue
+          const face = faces[j * MESH_U + i]
+          if (!face) continue
+          const [x, y, z] = face.center
+          const value = curlField(x, y, z)
+          const magnitude = norm3(value)
+          if (!Number.isFinite(magnitude) || magnitude < peak * 0.04) continue
+          arrows.push({
+            origin: face.center,
+            direction: value,
+            length: clamp(magnitude / Math.max(peak, 1e-9), 0, 1) * 0.3,
+          })
+        }
+      }
+
+      scene.add(
+        arrowField(three, arrows, {
+          color: palette.foreground,
+          thickness: 0.045,
+          head: 0.34,
+          opacity: 0.85,
+        }),
+      )
+    }
+
+    /** The wire, plus chevrons giving its direction and the field along it. */
+    function addLoop(handle: Scene3DHandle, F: Field3) {
+      const { three, scene, palette } = handle
+
+      const ring: number[] = []
+      for (let k = 0; k <= 240; k++) {
+        const [x, y, z] = LOOP((k / 240) * Math.PI * 2)
+        ring.push(x, y, z)
+      }
+      const ringGeometry = new three.BufferGeometry()
+      ringGeometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute(ring, 3),
+      )
+      const wire = new three.Line(
+        ringGeometry,
+        new three.LineBasicMaterial({ color: palette.destructive }),
+      )
+      wire.renderOrder = 3
+      scene.add(wire)
+
+      const marks: Arrow3D[] = []
+      for (let k = 0; k < 16; k++) {
+        const t = (k / 16) * Math.PI * 2
+        const at = LOOP(t)
+        // Direction of travel: the induced orientation the right hand gives.
+        marks.push({
+          origin: at,
+          direction: [-Math.sin(t), Math.cos(t), 0],
+          length: 0.17,
+        })
+
+        if (showField.on) {
+          const value = F(at[0], at[1], at[2])
+          if (norm3(value) > 1e-9) {
+            marks.push({ origin: at, direction: value, length: 0.28 })
+          }
+        }
+      }
+      const chevrons = arrowField(three, marks, {
+        color: palette.destructive,
+        thickness: 0.05,
+        head: 0.36,
+      })
+      chevrons.renderOrder = 3
+      scene.add(chevrons)
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.0, elevation: 0.38, distance: 4.4 },
+      distanceRange: [2.5, 20],
+      build: buildScene,
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the two integrals still agree in the readout.
+      })
+
+    const disposeControls = disposeAll([field, cap, showCurl, showField])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

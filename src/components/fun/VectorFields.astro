@@ -1,0 +1,441 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const presets = [
+  { value: "swirl", label: "Swirl  (−y, x)" },
+  { value: "source", label: "Source  (x, y)" },
+  { value: "saddle", label: "Saddle  (x, −y)" },
+  { value: "shear", label: "Shear  (y, 0)" },
+  { value: "spiral", label: "Spiral  (x − y, x + y)" },
+  { value: "dipole", label: "Dipole" },
+]
+---
+
+<FunStage
+  slug="vector-fields"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A grid of arrows showing a vector field, with particles drifting along the flow and a circular probe that stretches and rotates to reveal divergence and curl."
+>
+  <Fragment slot="controls">
+    <FunSelect name="preset" label="Field" options={presets} />
+    <FunFormula name="p" label="P(x, y)" value="-y" />
+    <FunFormula name="q" label="Q(x, y)" value="x" />
+    <FunSlider
+      name="probe"
+      label="Probe size"
+      min={5}
+      max={60}
+      step={1}
+      value={26}
+      display="0.26"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="arrows" label="Arrows" pressed />
+      <FunToggle name="flow" label="Flow" pressed />
+      <FunToggle name="probe-on" label="Probe" pressed />
+    </div>
+    <p class="fun-note">
+      The blob is a ring of particles carried by the flow. Watch whether it
+      grows, shrinks, or turns.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A vector field attaches an arrow to every point of the plane. The single
+      most common mistake is to draw all those arrows starting at the origin —
+      each arrow lives <em>at its own point</em>, and it says what happens to
+      something sitting exactly there.
+    </p>
+    <p>
+      The drifting dots make that concrete. Each one just reads the arrow
+      underneath it and moves that way. Iron filings, a weather map, a leaf on a
+      stream.
+    </p>
+    <p>
+      The blob is where the two derived quantities come from. Drop a small
+      circle of particles into the flow and let it go. If it
+      <strong>grows</strong>, the field has positive
+      <strong>divergence</strong>
+      there — the flow is spreading out, and something must be pouring in. If it
+      <strong>turns</strong>, the field has nonzero <strong>curl</strong> — the
+      flow is rotating, which is what the little paddlewheel measures.
+    </p>
+    <p>
+      Try the swirl: it turns hard but never changes size, so it has curl and no
+      divergence. The source is the opposite — it grows without turning. The
+      shear field looks like it does nothing interesting, and yet the blob
+      quietly rotates: shear carries curl too, which is exactly the fact that
+      makes curl worth defining.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { clamp, curl, divergence, fmt, hypot, rk4 } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { type Palette, alpha, mix } from "@/lib/fun/theme"
+
+  const PRESETS: Record<string, [string, string]> = {
+    swirl: ["-y", "x"],
+    source: ["x", "y"],
+    saddle: ["x", "-y"],
+    shear: ["y", "0"],
+    spiral: ["x - y", "x + y"],
+    dipole: ["x^2 - y^2 - 1", "2x y"],
+  }
+
+  const HALF_Y = 2.6
+  const PARTICLE_COUNT = 460
+  const PARTICLE_LIFE = 3.4
+  const BLOB_POINTS = 72
+  /** How long the probe blob is carried before it snaps back to a circle. */
+  const BLOB_LIFE = 1.7
+
+  registerFunApp('[data-fun-app="vector-fields"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let probe = { x: 1.1, y: 0.8 }
+    let bounds = { xMin: -HALF_Y, xMax: HALF_Y, yMin: -HALF_Y, yMax: HALF_Y }
+    let lastElapsed = 0
+
+    const pFormula = bindFormula(root, "p", ["x", "y"], (_x, y) => -y, redraw)
+    const qFormula = bindFormula(root, "q", ["x", "y"], (x) => x, redraw)
+
+    const preset = bindSelect(root, "preset", (value) => {
+      const [p, q] = PRESETS[value] ?? PRESETS.swirl
+      for (const [name, source] of [
+        ["p", p],
+        ["q", q],
+      ] as const) {
+        const input = root.querySelector<HTMLInputElement>(
+          `[data-fun-formula="${name}"]`,
+        )
+        if (!input) continue
+        input.value = source
+        input.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+      resetBlob()
+      resetParticles()
+    })
+
+    const probeSize = bindSlider(root, "probe", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: () => {
+        resetBlob()
+        redraw()
+      },
+    })
+
+    const showArrows = bindToggle(root, "arrows", redraw)
+    const showFlow = bindToggle(root, "flow", (on) => {
+      if (on) resetParticles()
+      app?.setAnimating(on || showProbe.on)
+      redraw()
+    })
+    const showProbe = bindToggle(root, "probe-on", (on) => {
+      if (on) resetBlob()
+      app?.setAnimating(on || showFlow.on)
+      redraw()
+    })
+
+    const field = (x: number, y: number): [number, number] => {
+      const px = pFormula.fn(x, y)
+      const qx = qFormula.fn(x, y)
+      return [Number.isFinite(px) ? px : 0, Number.isFinite(qx) ? qx : 0]
+    }
+
+    // Particles carry an age so they can be recycled; without that they all
+    // pile up in the sinks within a few seconds and the picture dies.
+    const particles = new Float64Array(PARTICLE_COUNT * 3)
+
+    function seedParticle(index: number) {
+      particles[index * 3] =
+        bounds.xMin + Math.random() * (bounds.xMax - bounds.xMin)
+      particles[index * 3 + 1] =
+        bounds.yMin + Math.random() * (bounds.yMax - bounds.yMin)
+      particles[index * 3 + 2] = Math.random() * PARTICLE_LIFE
+    }
+
+    function resetParticles() {
+      for (let i = 0; i < PARTICLE_COUNT; i++) seedParticle(i)
+    }
+
+    const blob = new Float64Array(BLOB_POINTS * 2)
+    let blobAge = 0
+
+    function resetBlob() {
+      const radius = probeSize.value / 100
+      for (let i = 0; i < BLOB_POINTS; i++) {
+        const angle = (i / BLOB_POINTS) * Math.PI * 2
+        blob[i * 2] = probe.x + Math.cos(angle) * radius
+        blob[i * 2 + 1] = probe.y + Math.sin(angle) * radius
+      }
+      blobAge = 0
+    }
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown: (info) => moveProbe(info.x, info.y),
+      onMove: (info) => moveProbe(info.x, info.y),
+    })
+
+    function moveProbe(sx: number, sy: number) {
+      probe = {
+        x: clamp(plot.wx(sx), bounds.xMin, bounds.xMax),
+        y: clamp(plot.wy(sy), bounds.yMin, bounds.yMax),
+      }
+      resetBlob()
+      redraw()
+    }
+
+    /** Scale factor that maps the field's typical length to one grid cell. */
+    function arrowScale(step: number): number {
+      let total = 0
+      let count = 0
+      for (let x = bounds.xMin; x <= bounds.xMax; x += step) {
+        for (let y = bounds.yMin; y <= bounds.yMax; y += step) {
+          const [u, v] = field(x, y)
+          const magnitude = hypot(u, v)
+          if (Number.isFinite(magnitude)) {
+            total += magnitude
+            count++
+          }
+        }
+      }
+      const mean = count > 0 ? total / count : 1
+      return mean > 1e-9 ? (step * 0.85) / mean : step
+    }
+
+    function advance(dt: number) {
+      const clamped = Math.min(dt, 0.05)
+
+      if (showFlow.on) {
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const x = particles[i * 3]
+          const y = particles[i * 3 + 1]
+          const age = particles[i * 3 + 2] + clamped
+          const [nx, ny] = rk4(field, x, y, clamped)
+          const escaped =
+            !Number.isFinite(nx) ||
+            !Number.isFinite(ny) ||
+            nx < bounds.xMin ||
+            nx > bounds.xMax ||
+            ny < bounds.yMin ||
+            ny > bounds.yMax
+          if (escaped || age > PARTICLE_LIFE) {
+            seedParticle(i)
+          } else {
+            particles[i * 3] = nx
+            particles[i * 3 + 1] = ny
+            particles[i * 3 + 2] = age
+          }
+        }
+      }
+
+      if (showProbe.on) {
+        blobAge += clamped
+        if (blobAge > BLOB_LIFE) {
+          resetBlob()
+        } else {
+          let sumX = 0
+          let sumY = 0
+          for (let i = 0; i < BLOB_POINTS; i++) {
+            const [nx, ny] = rk4(field, blob[i * 2], blob[i * 2 + 1], clamped)
+            if (Number.isFinite(nx) && Number.isFinite(ny)) {
+              blob[i * 2] = nx
+              blob[i * 2 + 1] = ny
+            }
+            sumX += blob[i * 2]
+            sumY += blob[i * 2 + 1]
+          }
+          // Slide the ring back onto the probe each step. The drift it loses is
+          // just F at the point, which the readout already reports; what's left
+          // is the stretching and turning that div and curl actually measure.
+          const shiftX = probe.x - sumX / BLOB_POINTS
+          const shiftY = probe.y - sumY / BLOB_POINTS
+          for (let i = 0; i < BLOB_POINTS; i++) {
+            blob[i * 2] += shiftX
+            blob[i * 2 + 1] += shiftY
+          }
+        }
+      }
+    }
+
+    function drawProbe(palette: Palette, divergenceAt: number, curlAt: number) {
+      const points: number[] = []
+      for (let i = 0; i < BLOB_POINTS; i++) {
+        points.push(blob[i * 2], blob[i * 2 + 1])
+      }
+      // Growing means positive divergence, shrinking means negative; the fill
+      // colour says which without waiting for the numbers to be read.
+      const tone = divergenceAt >= 0 ? palette.primary : palette.accent
+      plot.fillPath(points, alpha(tone, 0.3))
+      plot.polyline([...points, points[0], points[1]], {
+        color: tone,
+        width: 2,
+      })
+
+      // The paddlewheel: four spokes turning at half the curl, which is the
+      // actual angular velocity of a small rigid disc in the flow.
+      const spin = (curlAt / 2) * blobAge
+      const radius = (probeSize.value / 100) * 0.8
+      for (let i = 0; i < 4; i++) {
+        const angle = spin + (i * Math.PI) / 2
+        plot.polyline(
+          [
+            probe.x,
+            probe.y,
+            probe.x + Math.cos(angle) * radius,
+            probe.y + Math.sin(angle) * radius,
+          ],
+          { color: palette.destructive, width: 2.5 },
+        )
+      }
+      plot.disc(probe.x, probe.y, 4, { fill: palette.destructive })
+    }
+
+    app = mountFunApp({
+      canvas,
+      animate: true,
+      draw({ ctx, width, height, palette }, elapsed) {
+        const dt = elapsed - lastElapsed
+        lastElapsed = elapsed
+        if (dt > 0) advance(dt)
+
+        const aspect = Math.round((width / height) * 50) / 50
+        bounds = {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        }
+        plot.fit(width, height, bounds)
+
+        plot.grid(alpha(palette.foreground, 0.07))
+        plot.axes(alpha(palette.foreground, 0.25))
+
+        const step = (2 * HALF_Y) / 13
+        const scale = arrowScale(step)
+
+        if (showArrows.on) {
+          const cool = palette.accent
+          const warm = palette.primary
+          for (let i = 0; ; i++) {
+            const x = bounds.xMin + step / 2 + i * step
+            if (x > bounds.xMax) break
+            for (let j = 0; ; j++) {
+              const y = bounds.yMin + step / 2 + j * step
+              if (y > bounds.yMax) break
+              const [u, v] = field(x, y)
+              const magnitude = hypot(u, v)
+              if (!Number.isFinite(magnitude) || magnitude < 1e-9) continue
+              // Cap the drawn length so a fast corner can't swamp the grid,
+              // and let colour carry the speed instead.
+              const drawn = Math.min(magnitude * scale, step * 1.15)
+              const t = Math.min(1, (magnitude * scale) / (step * 1.15))
+              plot.arrow(
+                x - ((u / magnitude) * drawn) / 2,
+                y - ((v / magnitude) * drawn) / 2,
+                x + ((u / magnitude) * drawn) / 2,
+                y + ((v / magnitude) * drawn) / 2,
+                { color: mix(cool, warm, t), width: 1.6, head: 6 },
+              )
+            }
+          }
+        }
+
+        if (showFlow.on) {
+          ctx.beginPath()
+          for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const age = particles[i * 3 + 2]
+            // Fade in and out so recycling never shows as a pop.
+            const fade = Math.min(1, age * 3, (PARTICLE_LIFE - age) * 3)
+            if (fade <= 0) continue
+            const sx = plot.sx(particles[i * 3])
+            const sy = plot.sy(particles[i * 3 + 1])
+            ctx.moveTo(sx + 1.6, sy)
+            ctx.arc(sx, sy, 1.6, 0, Math.PI * 2)
+          }
+          ctx.fillStyle = alpha(palette.foreground, 0.55)
+          ctx.fill()
+        }
+
+        const divergenceAt = divergence(field, probe.x, probe.y)
+        const curlAt = curl(field, probe.x, probe.y)
+
+        if (showProbe.on) drawProbe(palette, divergenceAt, curlAt)
+
+        const [u, v] = field(probe.x, probe.y)
+        const lines = [
+          `F = (${fmt(u)}, ${fmt(v)})`,
+          `div F = ${fmt(divergenceAt)}`,
+          `curl F = ${fmt(curlAt)}`,
+        ]
+        // Pinned to the bottom, clear of the sticky site header.
+        const panelHeight = lines.length * 18 + 14
+        const panelTop = height - panelHeight - 14
+        plot.panel(14, panelTop, 168, panelHeight, palette)
+        lines.forEach((line, index) => {
+          plot.screenText(line, 24, panelTop + 14 + index * 18, {
+            color:
+              index === 1
+                ? divergenceAt >= 0
+                  ? palette.primary
+                  : palette.accent
+                : index === 2
+                  ? palette.destructive
+                  : palette.foreground,
+            size: 12,
+            align: "left",
+            mono: true,
+            weight: index > 0 ? "600" : "450",
+          })
+        })
+      },
+    })
+
+    resetParticles()
+    resetBlob()
+
+    const disposeControls = disposeAll([
+      pFormula,
+      qFormula,
+      preset,
+      probeSize,
+      showArrows,
+      showFlow,
+      showProbe,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

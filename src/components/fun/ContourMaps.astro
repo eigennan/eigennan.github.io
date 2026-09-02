@@ -1,0 +1,439 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const presets = [
+  {
+    value: "3exp(-(x-1)^2-(y-1)^2) + 2exp(-(x+1.2)^2-(y+0.9)^2)",
+    label: "Two hills",
+  },
+  { value: "x^2 + y^2", label: "Bowl" },
+  { value: "x^2 - y^2", label: "Saddle" },
+  { value: "sin(x)*cos(y)", label: "Egg carton" },
+  { value: "3exp(-(x^2+y^2)/2) - x/2", label: "Hill on a slope" },
+  { value: "x^3 - 3x y^2", label: "Monkey saddle" },
+]
+---
+
+<FunStage
+  slug="contour-maps"
+  dual
+  label3d="A three-dimensional surface with a horizontal slicing plane cutting through it at an adjustable height."
+  label="The contour map of the same surface, with the curve at the slicing plane's height drawn heavily."
+>
+  <Fragment slot="controls">
+    <FunSelect name="preset" label="Landscape" options={presets} />
+    <FunFormula
+      name="f"
+      label="f(x, y)"
+      value="3exp(-(x-1)^2-(y-1)^2) + 2exp(-(x+1.2)^2-(y+0.9)^2)"
+    />
+    <FunSlider
+      name="height"
+      label="Slice height"
+      min={0}
+      max={1000}
+      step={1}
+      value={420}
+      display="0.42"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="rings" label="Rings on the surface" pressed />
+      <FunToggle name="spin" label="Spin" />
+    </div>
+    <p class="fun-note">
+      Drag the left panel to turn the surface. Both panels always show the same
+      function.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A function of two variables is a landscape, and a landscape is awkward to
+      draw. So cartographers do something clever: instead of drawing the hill,
+      they draw the <strong>level curves</strong> — slice the surface at a
+      series of evenly spaced heights and trace where each cut lands.
+    </p>
+    <p>
+      That is exactly what the plane on the left is doing. Slide it up and watch
+      the curve it carves appear on the map at the right. Everything the map
+      knows about the hill is captured by that family of curves.
+    </p>
+    <p>
+      Now the part worth slowing down for. The heights are evenly spaced, but
+      the curves are <strong>not</strong>. Where the ground is steep, you climb
+      through several contour heights over a short horizontal distance, so the
+      curves crowd together. Where it's nearly flat, one contour drifts far from
+      the next.
+    </p>
+    <p>
+      So contour spacing <em>is</em> steepness. That's why hikers can read a
+      topographic map at a glance, and it's the reason a hand-drawn contour
+      sketch with evenly spaced rings is wrong — on the bowl, the rings must
+      crowd as you go out, because a bowl gets steeper the further you climb.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import type * as ThreeNamespace from "three"
+
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    gridToImage,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import { clamp, fmt, lerp } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import {
+    type Scene3DHandle,
+    type Three,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { type Palette, alpha, mix } from "@/lib/fun/theme"
+
+  const HALF = 3
+  const BOUNDS = { xMin: -HALF, xMax: HALF, yMin: -HALF, yMax: HALF }
+  const MAP_RESOLUTION = 190
+  const MESH_RESOLUTION = 108
+  const LEVEL_COUNT = 12
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="contour-maps"]', (root) => {
+    const mapCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const glCanvas = root.querySelector<HTMLCanvasElement>(
+      "[data-fun-canvas-3d]",
+    )
+    const maybeContext = mapCanvas?.getContext("2d")
+    if (!mapCanvas || !glCanvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const redraw = () => {
+      app?.redraw()
+      stage?.redraw()
+    }
+
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let shading: HTMLCanvasElement | null = null
+    let shadingKey = ""
+    /** Bumped whenever f changes, so the 3D side knows to rebuild its mesh. */
+    let revision = 0
+    let builtRevision = -1
+
+    const formula = bindFormula(
+      root,
+      "f",
+      ["x", "y"],
+      (x, y) =>
+        3 * Math.exp(-((x - 1) ** 2) - (y - 1) ** 2) +
+        2 * Math.exp(-((x + 1.2) ** 2) - (y + 0.9) ** 2),
+      () => {
+        grid = null
+        revision++
+        rebuild()
+        redraw()
+      },
+    )
+
+    const preset = bindSelect(root, "preset", (value) => {
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-fun-formula="f"]',
+      )
+      if (!input) return
+      input.value = value
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    const heightSlider = bindSlider(root, "height", {
+      format: (v) => (v / 1000).toFixed(2),
+      onInput: () => {
+        updatePlane()
+        redraw()
+      },
+    })
+
+    const showRings = bindToggle(root, "rings", () => {
+      rebuild()
+      redraw()
+    })
+    const spin = bindToggle(root, "spin", (on) => {
+      stage?.setAnimating(on)
+      redraw()
+    })
+
+    const f = () => formula.fn as (x: number, y: number) => number
+
+    function ensureGrid(): Grid {
+      if (grid) return grid
+      const next = sampleGrid(f(), BOUNDS, MAP_RESOLUTION, MAP_RESOLUTION)
+      grid = next
+      shading = null
+      levels = []
+      const span = next.max - next.min
+      for (let k = 1; k <= LEVEL_COUNT; k++) {
+        levels.push(next.min + (span * k) / (LEVEL_COUNT + 1))
+      }
+      return next
+    }
+
+    /** The slice height, as a value of f rather than a slider fraction. */
+    function sliceHeight(): number {
+      const g = ensureGrid()
+      return lerp(g.min, g.max, heightSlider.value / 1000)
+    }
+
+    // ---- the 3D side -------------------------------------------------------
+
+    let plane: ThreeNamespace.Mesh | null = null
+
+    function heightColor(three: Three, palette: Palette, t: number) {
+      const low = rgb(mix(palette.background, palette.accent, 0.55))
+      const high = rgb(mix(palette.background, palette.primary, 0.95))
+      return new three.Color(
+        lerp(low[0], high[0], t) / 255,
+        lerp(low[1], high[1], t) / 255,
+        lerp(low[2], high[2], t) / 255,
+      )
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const g = ensureGrid()
+      const span = g.max - g.min || 1
+      // Squash tall functions so the surface always sits in a sane box.
+      const zScale = clamp(2.6 / span, 0.15, 2.4)
+
+      addLights(three, scene)
+      scene.add(makeAxes(three, HALF * 1.08, palette["muted-foreground"], 1.7))
+
+      const n = MESH_RESOLUTION
+      const geometry = new three.PlaneGeometry(2 * HALF, 2 * HALF, n, n)
+      const position = geometry.getAttribute("position")
+      const colors = new Float32Array(position.count * 3)
+      const evaluate = f()
+
+      for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i)
+        const y = position.getY(i)
+        const value = evaluate(x, y)
+        const safe = Number.isFinite(value) ? value : g.min
+        position.setZ(i, (safe - (g.min + g.max) / 2) * zScale)
+        const color = heightColor(three, palette, (safe - g.min) / span)
+        colors[i * 3] = color.r
+        colors[i * 3 + 1] = color.g
+        colors[i * 3 + 2] = color.b
+      }
+      geometry.setAttribute("color", new three.BufferAttribute(colors, 3))
+      geometry.computeVertexNormals()
+
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.86,
+            metalness: 0.02,
+            side: three.DoubleSide,
+            flatShading: false,
+          }),
+        ),
+      )
+
+      if (showRings.on) {
+        const points: number[] = []
+        for (const level of levels) {
+          const z = (level - (g.min + g.max) / 2) * zScale + 0.012
+          for (const [x0, y0, x1, y1] of contourSegments(g, level)) {
+            points.push(x0, y0, z, x1, y1, z)
+          }
+        }
+        if (points.length > 0) {
+          const lineGeometry = new three.BufferGeometry()
+          lineGeometry.setAttribute(
+            "position",
+            new three.Float32BufferAttribute(points, 3),
+          )
+          scene.add(
+            new three.LineSegments(
+              lineGeometry,
+              new three.LineBasicMaterial({
+                color: palette.foreground,
+                transparent: true,
+                opacity: 0.4,
+              }),
+            ),
+          )
+        }
+      }
+
+      plane = new three.Mesh(
+        new three.PlaneGeometry(2 * HALF * 1.06, 2 * HALF * 1.06),
+        new three.MeshBasicMaterial({
+          color: palette.destructive,
+          transparent: true,
+          opacity: 0.22,
+          side: three.DoubleSide,
+          depthWrite: false,
+        }),
+      )
+      scene.add(plane)
+      builtRevision = revision
+      updatePlane()
+    }
+
+    function updatePlane() {
+      if (!plane || !grid) return
+      const span = grid.max - grid.min || 1
+      const zScale = clamp(2.6 / span, 0.15, 2.4)
+      plane.position.z =
+        (sliceHeight() - (grid.min + grid.max) / 2) * zScale + 0.004
+    }
+
+    function rebuild() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      plane = null
+      buildScene(stage)
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.05, elevation: 0.5, distance: 9.2 },
+      distanceRange: [4.5, 26],
+      build: buildScene,
+      update(handle, elapsed) {
+        if (spin.on) handle.orbit.azimuth = -1.05 - elapsed * 0.32
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        if (spin.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // WebGL unavailable: the contour map alone still teaches the idea.
+      })
+
+    // ---- the 2D side -------------------------------------------------------
+
+    app = mountFunApp({
+      canvas: mapCanvas,
+      draw({ ctx, width, height, palette }) {
+        const g = ensureGrid()
+        if (builtRevision !== revision) rebuild()
+
+        const aspect = Math.round((width / height) * 50) / 50
+        const bounds = {
+          xMin: -HALF * aspect,
+          xMax: HALF * aspect,
+          yMin: -HALF,
+          yMax: HALF,
+        }
+        plot.fit(width, height, bounds)
+
+        const key = `${palette.background}|${palette.primary}`
+        if (!shading || shadingKey !== key) {
+          shadingKey = key
+          const low = rgb(mix(palette.background, palette.accent, 0.32))
+          const high = rgb(mix(palette.background, palette.primary, 0.7))
+          shading = gridToImage(g, (t) => [
+            lerp(low[0], high[0], t),
+            lerp(low[1], high[1], t),
+            lerp(low[2], high[2], t),
+          ])
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.drawImage(
+          shading,
+          plot.sx(BOUNDS.xMin),
+          plot.sy(BOUNDS.yMax),
+          2 * HALF * plot.scale,
+          2 * HALF * plot.scale,
+        )
+
+        plot.axes(alpha(palette.foreground, 0.26))
+
+        const slice = sliceHeight()
+        for (const level of levels) {
+          const below = level <= slice
+          plot.segments(contourSegments(g, level), {
+            color: alpha(palette.foreground, below ? 0.5 : 0.22),
+            width: 1,
+          })
+        }
+
+        plot.segments(contourSegments(g, slice), {
+          color: palette.destructive,
+          width: 3,
+        })
+
+        const lines = [
+          `slice at f = ${fmt(slice)}`,
+          `f ranges ${fmt(g.min)} to ${fmt(g.max)}`,
+        ]
+        const panelHeight = lines.length * 18 + 14
+        const panelTop = height - panelHeight - 12
+        plot.panel(12, panelTop, 196, panelHeight, palette)
+        lines.forEach((line, index) => {
+          plot.screenText(line, 22, panelTop + 14 + index * 18, {
+            color:
+              index === 0 ? palette.destructive : palette["muted-foreground"],
+            size: 12,
+            align: "left",
+            mono: true,
+            weight: index === 0 ? "600" : "450",
+          })
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([
+      formula,
+      preset,
+      heightSlider,
+      showRings,
+      spin,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      app?.dispose()
+      stage?.dispose()
+    }
+  })
+</script>

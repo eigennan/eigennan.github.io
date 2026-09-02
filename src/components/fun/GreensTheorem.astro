@@ -1,0 +1,447 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const presets = [
+  { value: "swirl", label: "Swirl  (−y, x)" },
+  { value: "shear", label: "Shear  (y, 0)" },
+  { value: "quad", label: "Quadratic  (−y², x²)" },
+  { value: "gradient", label: "Gradient field  (x, y)" },
+  { value: "mixed", label: "Mixed  (sin y, x²)" },
+]
+---
+
+<FunStage
+  slug="greens-theorem"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A rectangle tiled into cells, each carrying a small circulation loop, with arrows on every cell edge showing that interior contributions cancel in opposing pairs and only the outer boundary survives."
+>
+  <Fragment slot="controls">
+    <FunSelect name="preset" label="Field" options={presets} />
+    <FunFormula name="p" label="P(x, y)" value="-y" />
+    <FunFormula name="q" label="Q(x, y)" value="x" />
+    <FunSlider
+      name="cells"
+      label="Cells per side"
+      min={1}
+      max={14}
+      step={1}
+      value={4}
+      display="4"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="edges" label="Edge arrows" pressed />
+      <FunToggle name="spins" label="Cell loops" pressed />
+    </div>
+    <p class="fun-note">
+      Every interior edge carries two arrows pointing opposite ways. They are
+      the same integral with opposite signs.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Green's theorem says that going once around the outside of a region gives
+      the same answer as adding up the spin of every point inside it. Written
+      out, that looks like a coincidence. It isn't — it's bookkeeping.
+    </p>
+    <p>
+      Chop the region into cells and walk around each one counterclockwise. Now
+      look at any edge in the <strong>interior</strong>: it belongs to two
+      cells, and those two cells walk it in
+      <strong>opposite directions</strong>. The two contributions are the same
+      number with opposite signs, so they cancel, exactly, no matter what the
+      field is.
+    </p>
+    <p>
+      Every interior edge dies that way. The only edges nobody cancels are the
+      ones on the outer boundary, which belong to just one cell. So the sum of
+      all those little loops collapses to a single trip around the outside —
+      which is why the two numbers in the corner agree at every resolution, not
+      just in the limit.
+    </p>
+    <p>
+      The limit does one more thing. Shrink the cells and each little loop
+      becomes <strong>curl F</strong> times the cell's area, which turns the sum
+      into a double integral. Watch the third number climb toward the other two
+      as you add cells.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { curl, fmt } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { spinSweep } from "@/lib/fun/spin"
+  import { alpha } from "@/lib/fun/theme"
+
+  const PRESETS: Record<string, [string, string]> = {
+    swirl: ["-y", "x"],
+    shear: ["y", "0"],
+    quad: ["-y^2", "x^2"],
+    gradient: ["x", "y"],
+    mixed: ["sin(y)", "x^2"],
+  }
+
+  const REGION = { xMin: -1.6, xMax: 1.6, yMin: -1.1, yMax: 1.1 }
+  /** Gauss-Legendre nodes on [0,1]; four is exact through degree seven. */
+  const NODES = [0.0694318442, 0.3300094782, 0.6699905218, 0.9305681558]
+  const WEIGHTS = [0.1739274226, 0.3260725774, 0.3260725774, 0.1739274226]
+
+  registerFunApp('[data-fun-app="greens-theorem"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    const pFormula = bindFormula(root, "p", ["x", "y"], (_x, y) => -y, redraw)
+    const qFormula = bindFormula(root, "q", ["x", "y"], (x) => x, redraw)
+
+    const preset = bindSelect(root, "preset", (value) => {
+      const [p, q] = PRESETS[value] ?? PRESETS.swirl
+      for (const [name, source] of [
+        ["p", p],
+        ["q", q],
+      ] as const) {
+        const input = root.querySelector<HTMLInputElement>(
+          `[data-fun-formula="${name}"]`,
+        )
+        if (!input) continue
+        input.value = source
+        input.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+    })
+
+    const cells = bindSlider(root, "cells", {
+      format: (v) => String(v),
+      onInput: redraw,
+    })
+    const showEdges = bindToggle(root, "edges", redraw)
+    const showSpins = bindToggle(root, "spins", redraw)
+
+    const field = (x: number, y: number): [number, number] => {
+      const p = pFormula.fn(x, y)
+      const q = qFormula.fn(x, y)
+      return [Number.isFinite(p) ? p : 0, Number.isFinite(q) ? q : 0]
+    }
+    const curlField = (x: number, y: number) => curl(field, x, y)
+
+    /**
+     * Integral of F.dr along a straight edge, by Gauss-Legendre. The same
+     * nodes are used for every edge, so an interior edge traversed from both
+     * sides produces bit-for-bit opposite sums — the cancellation the picture
+     * claims is a real one, not an approximate one.
+     */
+    function edgeIntegral(
+      x0: number,
+      y0: number,
+      x1: number,
+      y1: number,
+    ): number {
+      const dx = x1 - x0
+      const dy = y1 - y0
+      let total = 0
+      for (let k = 0; k < NODES.length; k++) {
+        const t = NODES[k]
+        const [p, q] = field(x0 + dx * t, y0 + dy * t)
+        total += WEIGHTS[k] * (p * dx + q * dy)
+      }
+      return total
+    }
+
+    interface Tally {
+      cellSum: number
+      boundary: number
+      curlIntegral: number
+      maxCell: number
+      circulations: number[]
+    }
+
+    function tally(n: number): Tally {
+      const dx = (REGION.xMax - REGION.xMin) / n
+      const dy = (REGION.yMax - REGION.yMin) / n
+      const circulations: number[] = []
+      let cellSum = 0
+      let curlIntegral = 0
+      let maxCell = 0
+
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < n; i++) {
+          const x0 = REGION.xMin + i * dx
+          const y0 = REGION.yMin + j * dy
+          const x1 = x0 + dx
+          const y1 = y0 + dy
+          // Counterclockwise, so interior edges are walked both ways.
+          const value =
+            edgeIntegral(x0, y0, x1, y0) +
+            edgeIntegral(x1, y0, x1, y1) +
+            edgeIntegral(x1, y1, x0, y1) +
+            edgeIntegral(x0, y1, x0, y0)
+          circulations.push(value)
+          cellSum += value
+          maxCell = Math.max(maxCell, Math.abs(value))
+          curlIntegral += curlField(x0 + dx / 2, y0 + dy / 2) * dx * dy
+        }
+      }
+
+      const boundary =
+        edgeIntegral(REGION.xMin, REGION.yMin, REGION.xMax, REGION.yMin) +
+        edgeIntegral(REGION.xMax, REGION.yMin, REGION.xMax, REGION.yMax) +
+        edgeIntegral(REGION.xMax, REGION.yMax, REGION.xMin, REGION.yMax) +
+        edgeIntegral(REGION.xMin, REGION.yMax, REGION.xMin, REGION.yMin)
+
+      return { cellSum, boundary, curlIntegral, maxCell, circulations }
+    }
+
+    /**
+     * A three-quarter arc with a head at the cell centre, turning the way that
+     * cell's circulation actually turns. The direction itself comes from
+     * `spinSweep`, which is unit-tested — see the note there.
+     */
+    function spinGlyph(
+      ctx: CanvasRenderingContext2D,
+      cx: number,
+      cy: number,
+      radius: number,
+      circulation: number,
+      color: string,
+      width: number,
+    ) {
+      const { startAngle, endAngle, anticlockwise, headTangent } =
+        spinSweep(circulation)
+
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, startAngle, endAngle, anticlockwise)
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+      ctx.lineCap = "round"
+      ctx.stroke()
+
+      const hx = cx + Math.cos(endAngle) * radius
+      const hy = cy + Math.sin(endAngle) * radius
+      const [tx, ty] = headTangent
+      // Capped in absolute pixels: proportional sizing made the head almost
+      // half the arc's radius at two or three cells per side.
+      const size = Math.min(Math.max(4, radius * 0.4), 11)
+
+      ctx.beginPath()
+      ctx.moveTo(hx + tx * size, hy + ty * size)
+      ctx.lineTo(hx - ty * size * 0.55, hy + tx * size * 0.55)
+      ctx.lineTo(hx + ty * size * 0.55, hy - tx * size * 0.55)
+      ctx.closePath()
+      ctx.fillStyle = color
+      ctx.fill()
+    }
+
+    /** A short arrow laid along an edge, pulled in toward its owning cell. */
+    function edgeArrow(
+      x0: number,
+      y0: number,
+      x1: number,
+      y1: number,
+      towardX: number,
+      towardY: number,
+      color: string,
+      width: number,
+    ) {
+      const midX = (x0 + x1) / 2
+      const midY = (y0 + y1) / 2
+      const inset = 0.2
+      const baseX = midX + (towardX - midX) * inset
+      const baseY = midY + (towardY - midY) * inset
+      const halfX = (x1 - x0) * 0.18
+      const halfY = (y1 - y0) * 0.18
+      plot.arrow(baseX - halfX, baseY - halfY, baseX + halfX, baseY + halfY, {
+        color,
+        width,
+        head: 6,
+      })
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const margin = 0.28
+        const aspect = width / height
+        const regionAspect =
+          (REGION.xMax - REGION.xMin) / (REGION.yMax - REGION.yMin)
+        // Keep the rectangle fully visible and centred at any canvas shape.
+        const halfY =
+          aspect > regionAspect
+            ? (REGION.yMax - REGION.yMin) / 2 + margin
+            : ((REGION.xMax - REGION.xMin) / 2 + margin) / aspect
+        plot.fit(width, height, {
+          xMin: -halfY * aspect,
+          xMax: halfY * aspect,
+          yMin: -halfY,
+          yMax: halfY,
+        })
+
+        const n = Math.round(cells.value)
+        const data = tally(n)
+        const dx = (REGION.xMax - REGION.xMin) / n
+        const dy = (REGION.yMax - REGION.yMin) / n
+
+        plot.fillPath(
+          [
+            REGION.xMin,
+            REGION.yMin,
+            REGION.xMax,
+            REGION.yMin,
+            REGION.xMax,
+            REGION.yMax,
+            REGION.xMin,
+            REGION.yMax,
+          ],
+          alpha(palette.muted, 0.55),
+        )
+
+        // Cell walls, faint: the scaffolding, not the point.
+        const walls: [number, number, number, number][] = []
+        for (let i = 1; i < n; i++) {
+          const x = REGION.xMin + i * dx
+          walls.push([x, REGION.yMin, x, REGION.yMax])
+          const y = REGION.yMin + i * dy
+          walls.push([REGION.xMin, y, REGION.xMax, y])
+        }
+        plot.segments(walls, {
+          color: alpha(palette.foreground, 0.18),
+          width: 1,
+        })
+
+        if (showSpins.on && data.maxCell > 1e-12) {
+          for (let j = 0; j < n; j++) {
+            for (let i = 0; i < n; i++) {
+              const value = data.circulations[j * n + i]
+              const strength = Math.abs(value) / data.maxCell
+              if (strength < 0.02) continue
+              spinGlyph(
+                ctx,
+                plot.sx(REGION.xMin + (i + 0.5) * dx),
+                plot.sy(REGION.yMin + (j + 0.5) * dy),
+                Math.min(dx, dy) * plot.scale * 0.3,
+                value,
+                alpha(
+                  value >= 0 ? palette.accent : palette.destructive,
+                  0.35 + 0.65 * strength,
+                ),
+                1.5,
+              )
+            }
+          }
+        }
+
+        if (showEdges.on) {
+          const interior = alpha(palette["muted-foreground"], 0.75)
+          for (let j = 0; j < n; j++) {
+            for (let i = 0; i < n; i++) {
+              const x0 = REGION.xMin + i * dx
+              const y0 = REGION.yMin + j * dy
+              const x1 = x0 + dx
+              const y1 = y0 + dy
+              const cx = x0 + dx / 2
+              const cy = y0 + dy / 2
+              const edges: [number, number, number, number, boolean][] = [
+                [x0, y0, x1, y0, j === 0],
+                [x1, y0, x1, y1, i === n - 1],
+                [x1, y1, x0, y1, j === n - 1],
+                [x0, y1, x0, y0, i === 0],
+              ]
+              for (const [ax, ay, bx, by, isBoundary] of edges) {
+                edgeArrow(
+                  ax,
+                  ay,
+                  bx,
+                  by,
+                  cx,
+                  cy,
+                  isBoundary ? palette.primary : interior,
+                  isBoundary ? 2.6 : 1.4,
+                )
+              }
+            }
+          }
+        }
+
+        plot.polyline(
+          [
+            REGION.xMin,
+            REGION.yMin,
+            REGION.xMax,
+            REGION.yMin,
+            REGION.xMax,
+            REGION.yMax,
+            REGION.xMin,
+            REGION.yMax,
+            REGION.xMin,
+            REGION.yMin,
+          ],
+          { color: palette.primary, width: 3 },
+        )
+
+        const lines: [string, string][] = [
+          [`sum of ${n * n} cell loops`, fmt(data.cellSum, 4)],
+          ["once around the boundary", fmt(data.boundary, 4)],
+          ["sum of curl x area", fmt(data.curlIntegral, 4)],
+        ]
+        // Pinned to the bottom: the sticky site header can sit over the top of
+        // the canvas while the page is scrolled, and these are the numbers the
+        // whole page exists to show.
+        const lineHeight = 19
+        const panelHeight = lines.length * lineHeight + 16
+        const panelTop = height - panelHeight - 14
+        plot.panel(14, panelTop, 246, panelHeight, palette)
+        lines.forEach(([label, value], index) => {
+          const y = panelTop + 16 + index * lineHeight
+          plot.screenText(label, 24, y, {
+            color:
+              index === 2 ? palette["muted-foreground"] : palette.foreground,
+            size: 11.5,
+            align: "left",
+          })
+          plot.screenText(value, 250, y, {
+            color: index === 2 ? palette["muted-foreground"] : palette.primary,
+            size: 12,
+            align: "right",
+            mono: true,
+            weight: "600",
+          })
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([
+      pFormula,
+      qFormula,
+      preset,
+      cells,
+      showEdges,
+      showSpins,
+    ])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

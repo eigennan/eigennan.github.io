@@ -1,0 +1,19 @@
+---
+import { findFunApp } from "@/lib/fun/registry"
+import CommonLayout from "@/layouts/CommonLayout.astro"
+import SpeedAndArclength from "@/components/fun/SpeedAndArclength.astro"
+
+const app = findFunApp("speed-and-arclength")
+---
+
+<CommonLayout
+  title={app.title}
+  description={app.blurb}
+  prose={false}
+  breadcrumbs={[
+    { label: "Fun", href: "/fun", icon: "mingcute:sparkles-line" },
+    { label: app.title, icon: app.icon },
+  ]}
+>
+  <SpeedAndArclength />
+</CommonLayout>

@@ -1,0 +1,425 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const landscapes = [
+  { value: "valley", label: "Narrow valley  ½(x² + 8y²)" },
+  { value: "bowl", label: "Round bowl  ½(x² + y²)" },
+  { value: "banana", label: "Banana valley" },
+  { value: "twohills", label: "Two basins" },
+]
+---
+
+<FunStage
+  slug="gradient-descent"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A contour map with a chain of steps walking downhill from a movable starting point, each step proportional to the gradient there."
+>
+  <Fragment slot="controls">
+    <FunSelect name="landscape" label="Landscape" options={landscapes} />
+    <FunSlider
+      name="eta"
+      label="Step size η"
+      min={1}
+      max={40}
+      step={1}
+      value={18}
+      display="0.18"
+    />
+    <FunSlider
+      name="momentum"
+      label="Momentum β"
+      min={0}
+      max={95}
+      step={1}
+      value={0}
+      display="0.00"
+    />
+    <FunSlider
+      name="px"
+      label="Start x"
+      min={-280}
+      max={280}
+      step={1}
+      value={230}
+      display="2.30"
+    />
+    <FunSlider
+      name="py"
+      label="Start y"
+      min={-140}
+      max={140}
+      step={1}
+      value={105}
+      display="1.05"
+    />
+    <FunSlider
+      name="steps"
+      label="Steps"
+      min={1}
+      max={60}
+      step={1}
+      value={26}
+      display="26"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="shade" label="Shading" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "loss", label: "value after the last step" },
+        { name: "grad", label: "|∇L| there" },
+        { name: "verdict", label: "outcome" },
+      ]}
+    />
+    <p class="fun-note">
+      On the narrow valley the tipping point is η = 0.25. Try 0.18, then 0.26.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      This is how essentially every neural network is trained, and it is nothing
+      more than the gradient. You are somewhere on a landscape, you want to get
+      low, so you compute which way is steepest uphill and take a step the other
+      way. Then again. That's the entire algorithm.
+    </p>
+    <p>
+      The only real decision is <strong>how big a step</strong>. Too small and
+      you crawl. Too big and you overshoot the valley floor, land higher up the
+      opposite wall, overshoot harder coming back, and spiral outward until the
+      numbers blow up. On the narrow valley here the boundary is exactly
+      <strong>η = 0.25</strong>, because that landscape's steepest direction has
+      curvature 8 and the threshold is 2 divided by it. Set 0.18 and watch it
+      zig-zag in; set 0.26 and watch it fly apart.
+    </p>
+    <p>
+      That zig-zag is worth staring at. The valley is much steeper across than
+      along, so the gradient points mostly at the far wall rather than down the
+      valley — and you make painfully slow progress in the direction you
+      actually care about. It is the single most common failure mode in
+      optimization, and it comes straight out of the second derivatives.
+    </p>
+    <p>
+      <strong>Momentum</strong>
+      is the standard fix. Keep a running average of your recent steps instead
+      of using only the current gradient: the side-to-side components alternate
+      in sign and cancel, while the small consistent push along the valley
+      accumulates. Turn β up on the narrow valley and watch the zig-zag
+      straighten out.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    gridToImage,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import { clamp, fmt, gradient, hypot, lerp } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha, mix } from "@/lib/fun/theme"
+
+  type Scalar = (x: number, y: number) => number
+
+  const LANDSCAPES: Record<string, { f: Scalar; halfY: number }> = {
+    // The capstone's loss surface: curvature 8 across, 1 along, so the step
+    // size tips over at 2/8 = 0.25.
+    valley: { f: (x, y) => 0.5 * (x * x + 8 * y * y), halfY: 1.5 },
+    bowl: { f: (x, y) => 0.5 * (x * x + y * y), halfY: 2.6 },
+    banana: {
+      f: (x, y) => 0.06 * ((1 - x) ** 2 + 24 * (y - x * x * 0.35) ** 2),
+      halfY: 1.8,
+    },
+    twohills: {
+      f: (x, y) =>
+        -2.2 * Math.exp(-((x - 1) ** 2) - 2 * (y - 0.4) ** 2) -
+        1.7 * Math.exp(-((x + 1.3) ** 2) - 2 * (y + 0.5) ** 2) +
+        0.12 * (x * x + y * y),
+      halfY: 1.9,
+    },
+  }
+
+  const RESOLUTION = 170
+  const LEVEL_COUNT = 14
+  /** Anything past this counts as having flown off the map. */
+  const BLOWUP = 1e4
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="gradient-descent"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let gridAspect = 0
+    let shading: HTMLCanvasElement | null = null
+    let shadingKey = ""
+
+    const invalidate = () => {
+      grid = null
+      gridAspect = 0
+      shading = null
+    }
+
+    const landscape = bindSelect(root, "landscape", () => {
+      invalidate()
+      redraw()
+    })
+    const eta = bindSlider(root, "eta", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const beta = bindSlider(root, "momentum", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const px = bindSlider(root, "px", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const py = bindSlider(root, "py", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const steps = bindSlider(root, "steps", {
+      format: (v) => String(v),
+      onInput: redraw,
+    })
+    const showShade = bindToggle(root, "shade", redraw)
+
+    const current = () => LANDSCAPES[landscape.value] ?? LANDSCAPES.valley
+
+    /**
+     * The iterates. Momentum is the standard heavy-ball form: a velocity that
+     * decays by beta each step and picks up the current gradient, which is
+     * what makes alternating components cancel and consistent ones add.
+     */
+    function descend(): {
+      path: number[]
+      diverged: boolean
+      startLoss: number
+      endLoss: number
+    } {
+      const { f } = current()
+      const path: number[] = []
+      let x = px.value / 100
+      let y = py.value / 100
+      let vx = 0
+      let vy = 0
+      const rate = eta.value / 100
+      const decay = beta.value / 100
+      let diverged = false
+
+      path.push(x, y)
+      for (let k = 0; k < steps.value; k++) {
+        const [gx, gy] = gradient(f, x, y)
+        if (!Number.isFinite(gx) || !Number.isFinite(gy)) {
+          diverged = true
+          break
+        }
+        vx = decay * vx + gx
+        vy = decay * vy + gy
+        x -= rate * vx
+        y -= rate * vy
+        if (
+          !Number.isFinite(x) ||
+          !Number.isFinite(y) ||
+          hypot(x, y) > BLOWUP
+        ) {
+          diverged = true
+          break
+        }
+        path.push(x, y)
+      }
+
+      // Overflow is the loud failure, but the interesting one is quieter: the
+      // steps are finite and still climbing. Judge by whether the walk ended
+      // higher than it started, which is what the picture actually shows.
+      const startLoss = f(path[0], path[1])
+      const endLoss = f(path[path.length - 2], path[path.length - 1])
+      if (Number.isFinite(startLoss) && Number.isFinite(endLoss)) {
+        if (endLoss > startLoss) diverged = true
+      }
+
+      return { path, diverged, startLoss, endLoss }
+    }
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown: (info) => moveStart(info.x, info.y),
+      onMove: (info) => moveStart(info.x, info.y),
+    })
+
+    function moveStart(sx: number, sy: number) {
+      px.set(Math.round(clamp(plot.wx(sx), -2.8, 2.8) * 100))
+      py.set(Math.round(clamp(plot.wy(sy), -1.4, 1.4) * 100))
+      redraw()
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const { f, halfY } = current()
+        const aspect = Math.round((width / height) * 50) / 50
+        const bounds = {
+          xMin: -halfY * aspect,
+          xMax: halfY * aspect,
+          yMin: -halfY,
+          yMax: halfY,
+        }
+        plot.fit(width, height, bounds)
+
+        if (!grid || gridAspect !== aspect) {
+          gridAspect = aspect
+          grid = sampleGrid(
+            f,
+            bounds,
+            Math.min(330, Math.round(RESOLUTION * aspect)),
+            RESOLUTION,
+          )
+          shading = null
+          levels = []
+          // Levels bunched toward the floor, where all the action is.
+          for (let k = 1; k <= LEVEL_COUNT; k++) {
+            const t = (k / (LEVEL_COUNT + 1)) ** 1.7
+            levels.push(lerp(grid.min, grid.max, t))
+          }
+        }
+
+        if (showShade.on) {
+          const key = `${palette.background}|${palette.primary}`
+          if (!shading || shadingKey !== key) {
+            shadingKey = key
+            const low = rgb(mix(palette.background, palette.accent, 0.3))
+            const high = rgb(mix(palette.background, palette.primary, 0.68))
+            shading = gridToImage(grid, (t) => [
+              lerp(low[0], high[0], t ** 0.6),
+              lerp(low[1], high[1], t ** 0.6),
+              lerp(low[2], high[2], t ** 0.6),
+            ])
+          }
+          ctx.imageSmoothingEnabled = true
+          ctx.drawImage(
+            shading,
+            plot.sx(bounds.xMin),
+            plot.sy(bounds.yMax),
+            (bounds.xMax - bounds.xMin) * plot.scale,
+            (bounds.yMax - bounds.yMin) * plot.scale,
+          )
+        }
+
+        plot.axes(alpha(palette.foreground, 0.24))
+        for (const level of levels) {
+          plot.segments(contourSegments(grid, level), {
+            color: alpha(palette.foreground, 0.26),
+            width: 1,
+          })
+        }
+
+        const { path, diverged, endLoss } = descend()
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, height)
+        ctx.clip()
+
+        plot.polyline(path, {
+          color: alpha(palette.destructive, 0.75),
+          width: 1.8,
+        })
+        for (let i = 0; i < path.length; i += 2) {
+          const last = i === path.length - 2
+          plot.disc(path[i], path[i + 1], last ? 5.5 : 3, {
+            fill: last ? palette.destructive : alpha(palette.destructive, 0.55),
+          })
+        }
+        plot.disc(path[0], path[1], 6, {
+          fill: palette.background,
+          stroke: palette.destructive,
+          width: 2.5,
+        })
+
+        ctx.restore()
+
+        const endX = path[path.length - 2]
+        const endY = path[path.length - 1]
+        const [gx, gy] = gradient(f, endX, endY)
+        setReadout(
+          "loss",
+          Number.isFinite(endLoss) ? fmt(endLoss, 4) : "overflowed",
+        )
+        setReadout(
+          "grad",
+          Number.isFinite(gx) && Number.isFinite(gy)
+            ? fmt(hypot(gx, gy), 4)
+            : "—",
+        )
+        setReadout(
+          "verdict",
+          diverged ? "climbing, not descending" : "converging",
+        )
+
+        if (diverged) {
+          const label = "diverging: the step size is too big"
+          const panelWidth = 268
+          plot.panel(14, 14, panelWidth, 32, palette)
+          plot.screenText(label, 14 + panelWidth / 2, 30, {
+            color: palette.destructive,
+            size: 12,
+            weight: "600",
+          })
+        }
+      },
+    })
+
+    const disposeControls = disposeAll([
+      landscape,
+      eta,
+      beta,
+      px,
+      py,
+      steps,
+      showShade,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

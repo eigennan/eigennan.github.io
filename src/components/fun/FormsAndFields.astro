@@ -1,0 +1,368 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+---
+
+<FunStage
+  slug="forms-and-fields"
+  ratio="3 / 2"
+  narrowRatio="4 / 5"
+  label="A ladder of differential forms by degree, with one operator carrying each rung to the next, and the classical theorem that lives at each step."
+>
+  <Fragment slot="controls">
+    <FunSlider
+      name="degree"
+      label="Degree"
+      min={0}
+      max={3}
+      step={1}
+      value={1}
+      display="1"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="theorem" label="The theorem at this step" pressed />
+      <FunToggle name="dd" label="Why d ∘ d = 0" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "rung", label: "at this degree" },
+        { name: "operator", label: "d becomes" },
+        { name: "statement", label: "the theorem" },
+        { name: "note", label: "" },
+      ]}
+    />
+    <p class="fun-note">
+      Grad, curl and div are not three ideas. They are one operator, applied to
+      objects of three different shapes.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Vector calculus arrives as a pile of separate results: three derivative
+      operators with unrelated definitions, four integral theorems that look
+      nothing alike, and two identities you memorize because they keep coming
+      up. It is a lot to hold, and none of it looks inevitable.
+    </p>
+    <p>
+      Differential forms collapse the pile. Instead of vector fields there are
+      objects graded by <strong>degree</strong> — things you integrate over
+      points, over curves, over surfaces, over volumes. There is exactly one
+      derivative, written <strong>d</strong>, which raises degree by one. Grad,
+      curl and div are what d <em>looks like</em> at degrees 0, 1 and 2, and the
+      reason there are three of them in three dimensions is simply that there
+      are three rungs.
+    </p>
+    <p>
+      The identities stop being facts to memorize too.
+      <strong>curl(grad f) = 0 </strong>
+      and
+      <strong>div(curl F) = 0</strong>
+      are both the single statement
+      <strong>d ∘ d = 0</strong>, read at two different degrees. One line, two
+      corollaries.
+    </p>
+    <p>
+      And the four theorems become one:
+      <strong
+        >∫<sub>∂M</sub>
+        ω = ∫<sub>M</sub>
+        dω</strong
+      >. What you get integrating a derivative over a region equals what you get
+      integrating the thing itself over that region's boundary. Feed it a curve
+      and you get the fundamental theorem for line integrals; feed it a flat
+      region and you get Green; a surface in space, Stokes; a solid, the
+      divergence theorem. Even the ordinary fundamental theorem of calculus is
+      the degree-0 case, where the "boundary" of an interval is its two
+      endpoints.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import { bindSlider, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha } from "@/lib/fun/theme"
+
+  interface Rung {
+    degree: number
+    name: string
+    holds: string
+    integrateOver: string
+    operator: string
+    operatorNote: string
+    theorem: string
+    statement: string
+  }
+
+  const RUNGS: Rung[] = [
+    {
+      degree: 0,
+      name: "0-form",
+      holds: "a scalar function f",
+      integrateOver: "a pair of endpoints",
+      operator: "the gradient",
+      operatorNote: "df holds the same information as ∇f",
+      theorem: "Fundamental theorem for line integrals",
+      statement: "∫_C ∇f · dr  =  f(end) − f(start)",
+    },
+    {
+      degree: 1,
+      name: "1-form",
+      holds: "a field you integrate along a curve",
+      integrateOver: "a curve",
+      operator: "the curl",
+      operatorNote: "dω holds the same information as ∇ × F",
+      theorem: "Green's and Stokes' theorems",
+      statement: "∮_∂S F · dr  =  ∬_S (∇ × F) · dS",
+    },
+    {
+      degree: 2,
+      name: "2-form",
+      holds: "a flux you integrate through a surface",
+      integrateOver: "a surface",
+      operator: "the divergence",
+      operatorNote: "dω holds the same information as ∇ · F",
+      theorem: "The divergence theorem",
+      statement: "∯_∂V F · dS  =  ∭_V (∇ · F) dV",
+    },
+    {
+      degree: 3,
+      name: "3-form",
+      holds: "a density you integrate over a solid",
+      integrateOver: "a solid",
+      operator: "nothing left",
+      operatorNote: "in three dimensions there is no degree 4",
+      theorem: "The ladder ends",
+      statement: "d of a top-degree form is zero, for want of room",
+    },
+  ]
+
+  registerFunApp('[data-fun-app="forms-and-fields"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+    let boxes: { degree: number; top: number; bottom: number }[] = []
+
+    const degree = bindSlider(root, "degree", {
+      format: (v) => String(v),
+      onInput: redraw,
+    })
+    const showTheorem = bindToggle(root, "theorem", redraw)
+    const showComposition = bindToggle(root, "dd", redraw)
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        const hit = boxes.find(
+          (box) => info.y >= box.top && info.y <= box.bottom,
+        )
+        if (!hit) return false
+        degree.set(hit.degree)
+        redraw()
+      },
+    })
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        plot.fit(width, height, { xMin: -1, xMax: 1, yMin: -1, yMax: 1 })
+
+        const selected = Math.round(degree.value)
+        const marginY = 22
+        const gap = 20
+        const boxHeight = (height - marginY * 2 - gap * 3) / 4
+        const left = 22
+        const boxWidth = Math.min(width - 44, 300)
+
+        boxes = []
+        RUNGS.forEach((rung, index) => {
+          const top = marginY + index * (boxHeight + gap)
+          boxes.push({ degree: rung.degree, top, bottom: top + boxHeight })
+          const active = rung.degree === selected
+          // The pair d links: the selected rung and the one it maps into.
+          const linked = rung.degree === selected + 1
+
+          ctx.beginPath()
+          ctx.roundRect(left, top, boxWidth, boxHeight, 10)
+          ctx.fillStyle = active
+            ? alpha(palette.accent, 0.2)
+            : linked
+              ? alpha(palette.primary, 0.14)
+              : alpha(palette.muted, 0.5)
+          ctx.fill()
+          ctx.strokeStyle = active ? palette.accent : alpha(palette.border, 1)
+          ctx.lineWidth = active ? 2.5 : 1
+          ctx.stroke()
+
+          plot.screenText(`${rung.name}`, left + 16, top + boxHeight / 2 - 9, {
+            color: active ? palette.foreground : palette["muted-foreground"],
+            size: 14,
+            align: "left",
+            weight: "600",
+          })
+          plot.screenText(rung.holds, left + 16, top + boxHeight / 2 + 11, {
+            color: palette["muted-foreground"],
+            size: 11.5,
+            align: "left",
+          })
+          plot.screenText(
+            `integrate over ${rung.integrateOver}`,
+            left + boxWidth - 16,
+            top + boxHeight / 2,
+            {
+              color: palette["muted-foreground"],
+              size: 11,
+              align: "right",
+            },
+          )
+
+          // The d arrow into the next rung.
+          if (index < RUNGS.length - 1) {
+            const arrowTop = top + boxHeight
+            const midX = left + boxWidth / 2
+            const lit = rung.degree === selected
+            ctx.beginPath()
+            ctx.moveTo(midX, arrowTop + 2)
+            ctx.lineTo(midX, arrowTop + gap - 6)
+            ctx.strokeStyle = lit
+              ? palette.destructive
+              : alpha(palette["muted-foreground"], 0.6)
+            ctx.lineWidth = lit ? 2.5 : 1.5
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(midX, arrowTop + gap - 1)
+            ctx.lineTo(midX - 5, arrowTop + gap - 9)
+            ctx.lineTo(midX + 5, arrowTop + gap - 9)
+            ctx.closePath()
+            ctx.fillStyle = lit
+              ? palette.destructive
+              : alpha(palette["muted-foreground"], 0.6)
+            ctx.fill()
+
+            plot.screenText(
+              `d = ${RUNGS[index].operator}`,
+              midX + 14,
+              arrowTop + gap / 2,
+              {
+                color: lit ? palette.destructive : palette["muted-foreground"],
+                size: 11.5,
+                align: "left",
+                weight: lit ? "600" : "450",
+              },
+            )
+          }
+        })
+
+        // The right-hand column: the theorem, or the d ∘ d = 0 story.
+        const panelLeft = left + boxWidth + 22
+        const panelWidth = width - panelLeft - 22
+        if (panelWidth > 150) {
+          const rung = RUNGS[selected]
+          if (showComposition.on) {
+            plot.screenText("d ∘ d = 0", panelLeft, marginY + 12, {
+              color: palette.foreground,
+              size: 16,
+              align: "left",
+              baseline: "top",
+              weight: "600",
+            })
+            const lines = [
+              "Apply d twice and you always get zero.",
+              "",
+              "At degree 0 that reads",
+              "    ∇ × (∇f) = 0",
+              "At degree 1 it reads",
+              "    ∇ · (∇ × F) = 0",
+              "",
+              "Two identities you were asked to",
+              "memorize, and one line of algebra",
+              "that explains both.",
+            ]
+            lines.forEach((line, i) => {
+              plot.screenText(line, panelLeft, marginY + 46 + i * 19, {
+                color: line.startsWith("    ")
+                  ? palette.destructive
+                  : palette["muted-foreground"],
+                size: 12,
+                align: "left",
+                baseline: "top",
+                mono: line.startsWith("    "),
+              })
+            })
+          } else if (showTheorem.on) {
+            plot.screenText("∫∂M ω = ∫M dω", panelLeft, marginY + 12, {
+              color: palette.foreground,
+              size: 16,
+              align: "left",
+              baseline: "top",
+              weight: "600",
+            })
+            plot.screenText(
+              "one theorem, read at each degree",
+              panelLeft,
+              marginY + 36,
+              {
+                color: palette["muted-foreground"],
+                size: 11.5,
+                align: "left",
+                baseline: "top",
+              },
+            )
+            plot.screenText(rung.theorem, panelLeft, marginY + 76, {
+              color: palette.accent,
+              size: 13.5,
+              align: "left",
+              baseline: "top",
+              weight: "600",
+            })
+            plot.screenText(rung.statement, panelLeft, marginY + 102, {
+              color: palette.foreground,
+              size: 12,
+              align: "left",
+              baseline: "top",
+              mono: true,
+            })
+            plot.screenText(rung.operatorNote, panelLeft, marginY + 134, {
+              color: palette["muted-foreground"],
+              size: 11.5,
+              align: "left",
+              baseline: "top",
+            })
+          }
+        }
+
+        const rung = RUNGS[selected]
+        setReadout("rung", `${rung.name} — ${rung.holds}`)
+        setReadout("operator", rung.operator)
+        setReadout("statement", rung.statement)
+        setReadout("note", rung.operatorNote)
+      },
+    })
+
+    const disposeControls = disposeAll([degree, showTheorem, showComposition])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

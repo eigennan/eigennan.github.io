@@ -1,0 +1,298 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const shapes = [
+  { value: "half-disk", label: "Half disk" },
+  { value: "disk", label: "Disk" },
+  { value: "rectangle", label: "Rectangle" },
+  { value: "triangle", label: "Triangle" },
+  { value: "annulus", label: "Annulus" },
+]
+
+const densities = [
+  { value: "uniform", label: "Uniform" },
+  { value: "right", label: "Heavier to the right  (1 + x)" },
+  { value: "up", label: "Heavier upward  (1 + y)" },
+  { value: "rim", label: "Heavier at the rim  (r)" },
+]
+---
+
+<FunStage
+  slug="mass-and-moments"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A flat plate shaded by its density, with its balance point marked and the circle of gyration that carries the same moment of inertia drawn around it."
+>
+  <Fragment slot="controls">
+    <FunSelect name="shape" label="Plate" options={shapes} />
+    <FunSelect name="density" label="Density" options={densities} />
+    <div class="fun-toggles">
+      <FunToggle name="gyration" label="Radius of gyration" pressed />
+      <FunToggle name="grid" label="Show the cells" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "mass", label: "mass" },
+        { name: "centroid", label: "balance point" },
+        { name: "inertia", label: "I about the balance point" },
+        { name: "gyration", label: "radius of gyration" },
+      ]}
+    />
+    <p class="fun-note">
+      A uniform disk of mass M and radius R has I = ½MR². Try it and check.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Cut a shape out of card and ask two different questions about it. Where
+      does it balance on a pin? And how hard is it to spin? Both are integrals
+      over the same plate, and both weight each little piece by the density
+      there — but they weight <em>position</em> very differently.
+    </p>
+    <p>
+      The balance point averages position with weight <strong>ρ dA</strong>: it
+      is the total of x times mass, divided by total mass. Push the density to
+      one side and the balance point slides that way, exactly as intuition says.
+    </p>
+    <p>
+      The <strong>moment of inertia</strong> weights by
+      <strong>r² ρ dA</strong>
+      instead — distance <em>squared</em> from the axis. That square is the
+      whole story. Mass far from the axis counts enormously more than mass near
+      it, which is why a hoop is so much harder to spin than a solid disk of the
+      same weight, and why a figure skater speeds up by pulling her arms in
+      without changing her mass at all.
+    </p>
+    <p>
+      The circle drawn around the balance point is the
+      <strong>radius of gyration</strong>: the single distance at which you
+      could put the entire mass, as one point, and get the same resistance to
+      spinning. It is a root-mean-square of distance, so it always sits further
+      out than the average distance does — again, because of the square.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import { bindSelect, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { fmt } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha, mix } from "@/lib/fun/theme"
+
+  type Predicate = (x: number, y: number) => boolean
+  type Density = (x: number, y: number) => number
+
+  const SHAPES: Record<string, { inside: Predicate; note: string }> = {
+    "half-disk": {
+      inside: (x, y) => x * x + y * y <= 1 && y >= 0,
+      note: "uniform: balances at 4/(3π) ≈ 0.4244 up the axis",
+    },
+    disk: {
+      inside: (x, y) => x * x + y * y <= 1,
+      note: "uniform: I = ½MR², so the gyration radius is R/√2",
+    },
+    rectangle: {
+      inside: (x, y) => Math.abs(x) <= 0.9 && Math.abs(y) <= 0.55,
+      note: "uniform: I = M(w² + h²)/12",
+    },
+    triangle: {
+      inside: (x, y) => y >= -0.6 && y <= 1 - 1.6 * Math.abs(x),
+      note: "uniform: balances one third of the way up from the base",
+    },
+    annulus: {
+      inside: (x, y) => {
+        const r = Math.hypot(x, y)
+        return r <= 1 && r >= 0.55
+      },
+      note: "all the mass is far out, so I is large for the mass",
+    },
+  }
+
+  const DENSITIES: Record<string, Density> = {
+    uniform: () => 1,
+    right: (x) => 1 + x,
+    up: (_x, y) => 1 + y,
+    rim: (x, y) => 0.15 + Math.hypot(x, y),
+  }
+
+  const HALF = 1.25
+  /** Cells per side for the integration lattice. */
+  const CELLS = 260
+
+  registerFunApp('[data-fun-app="mass-and-moments"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    const shape = bindSelect(root, "shape", redraw)
+    const density = bindSelect(root, "density", redraw)
+    const showGyration = bindToggle(root, "gyration", redraw)
+    const showGrid = bindToggle(root, "grid", redraw)
+
+    const currentShape = () => SHAPES[shape.value] ?? SHAPES["half-disk"]
+    const currentDensity = () => DENSITIES[density.value] ?? DENSITIES.uniform
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /**
+     * Mass, first moments and the second moment, all by midpoint sum over the
+     * same lattice — so the three numbers are guaranteed consistent with each
+     * other even where the boundary is only resolved to one cell.
+     */
+    function integrate() {
+      const { inside } = currentShape()
+      const rho = currentDensity()
+      const step = (2 * HALF) / CELLS
+      const cellArea = step * step
+      let mass = 0
+      let momentX = 0
+      let momentY = 0
+      let secondRaw = 0
+      let peak = 1e-9
+
+      for (let i = 0; i < CELLS; i++) {
+        const x = -HALF + (i + 0.5) * step
+        for (let j = 0; j < CELLS; j++) {
+          const y = -HALF + (j + 0.5) * step
+          if (!inside(x, y)) continue
+          const weight = rho(x, y) * cellArea
+          mass += weight
+          momentX += x * weight
+          momentY += y * weight
+          secondRaw += (x * x + y * y) * weight
+          peak = Math.max(peak, rho(x, y))
+        }
+      }
+
+      const cx = mass > 0 ? momentX / mass : 0
+      const cy = mass > 0 ? momentY / mass : 0
+      // Parallel axis theorem, in reverse: shift the origin moment to the
+      // balance point rather than integrating a second time.
+      const inertia = secondRaw - mass * (cx * cx + cy * cy)
+      return {
+        mass,
+        cx,
+        cy,
+        inertia,
+        gyration: mass > 0 ? Math.sqrt(inertia / mass) : 0,
+        peak,
+      }
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ width, height, palette }) {
+        const { inside, note } = currentShape()
+        const rho = currentDensity()
+        const aspect = width / height
+        plot.fit(width, height, {
+          xMin: -HALF * aspect,
+          xMax: HALF * aspect,
+          yMin: -HALF,
+          yMax: HALF,
+        })
+
+        plot.grid(alpha(palette.foreground, 0.06), 0.5)
+        plot.axes(alpha(palette.foreground, 0.26))
+
+        const result = integrate()
+
+        // The plate, drawn cell by cell and tinted by how heavy it is there.
+        const draw = showGrid.on ? 54 : 150
+        const step = (2 * HALF) / draw
+        for (let i = 0; i < draw; i++) {
+          const x = -HALF + (i + 0.5) * step
+          for (let j = 0; j < draw; j++) {
+            const y = -HALF + (j + 0.5) * step
+            if (!inside(x, y)) continue
+            const t = Math.min(rho(x, y) / result.peak, 1)
+            plot.fillPath(
+              [
+                x - step / 2,
+                y - step / 2,
+                x + step / 2,
+                y - step / 2,
+                x + step / 2,
+                y + step / 2,
+                x - step / 2,
+                y + step / 2,
+              ],
+              mix(
+                mix(palette.background, palette.accent, 0.22),
+                palette.primary,
+                t * 0.85,
+              ),
+            )
+            if (showGrid.on) {
+              plot.polyline(
+                [
+                  x - step / 2,
+                  y - step / 2,
+                  x + step / 2,
+                  y - step / 2,
+                  x + step / 2,
+                  y + step / 2,
+                  x - step / 2,
+                  y + step / 2,
+                  x - step / 2,
+                  y - step / 2,
+                ],
+                { color: alpha(palette.foreground, 0.2), width: 0.75 },
+              )
+            }
+          }
+        }
+
+        if (showGyration.on && result.gyration > 0) {
+          plot.worldCircle(result.cx, result.cy, result.gyration, {
+            color: palette.destructive,
+            width: 2,
+            dash: [6, 5],
+          })
+        }
+
+        plot.disc(result.cx, result.cy, 8, {
+          fill: palette.destructive,
+          stroke: palette.background,
+          width: 2.5,
+        })
+
+        setReadout("mass", fmt(result.mass, 4))
+        setReadout("centroid", `(${fmt(result.cx, 4)}, ${fmt(result.cy, 4)})`)
+        setReadout("inertia", fmt(result.inertia, 4))
+        setReadout("gyration", fmt(result.gyration, 4))
+
+        const panelWidth = 340
+        plot.panel(14, height - 46, panelWidth, 32, palette)
+        plot.screenText(note, 14 + panelWidth / 2, height - 30, {
+          color: palette["muted-foreground"],
+          size: 11.5,
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([shape, density, showGyration, showGrid])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

@@ -1,0 +1,305 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+---
+
+<FunStage
+  slug="dot-product"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="Two vectors from the origin, with the shadow one casts on the other drawn along it and the angle between them marked."
+>
+  <Fragment slot="controls">
+    <FunSlider
+      name="ax"
+      label="a — x"
+      min={-300}
+      max={300}
+      step={1}
+      value={230}
+      display="2.30"
+    />
+    <FunSlider
+      name="ay"
+      label="a — y"
+      min={-200}
+      max={200}
+      step={1}
+      value={130}
+      display="1.30"
+    />
+    <FunSlider
+      name="bx"
+      label="b — x"
+      min={-300}
+      max={300}
+      step={1}
+      value={250}
+      display="2.50"
+    />
+    <FunSlider
+      name="by"
+      label="b — y"
+      min={-200}
+      max={200}
+      step={1}
+      value={-70}
+      display="-0.70"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="projection" label="Shadow" pressed />
+      <FunToggle name="unit" label="Unit circle" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "dot", label: "a · b" },
+        { name: "angle", label: "angle between them" },
+        { name: "comp", label: "signed length of the shadow" },
+        { name: "check", label: "|a| |b| cos θ" },
+      ]}
+    />
+    <p class="fun-note">
+      Swing a past square-on to b and watch the dot product cross zero.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Shine a light straight down onto <strong>b</strong> and see what shadow
+      <strong>a</strong>
+      casts on it. That shadow is the
+      <strong>projection</strong>, and its signed length times the length of b
+      is the <strong>dot product</strong>. Nothing more mysterious than that.
+    </p>
+    <p>
+      Which explains the sign. When the two vectors lean the same way the shadow
+      falls along b and the product is positive. Swing a past square-on and the
+      shadow falls the other way, so the product goes negative. At exactly 90°
+      the shadow has no length at all and the dot product is
+      <strong>zero</strong>
+      — which is why "perpendicular" and "dot product zero" are the same
+      statement, and why the dot product is how you test for a right angle
+      without measuring an angle.
+    </p>
+    <p>
+      The last two rows are the same number computed two ways: once from the
+      coordinates as <strong>a₁b₁ + a₂b₂</strong>, and once from the geometry as
+      <strong>|a| |b| cos θ</strong>. That they always agree is the whole reason
+      the dot product is useful — it lets you get at an angle using nothing but
+      arithmetic on coordinates.
+    </p>
+    <p>
+      Work is a dot product. So is the flux through a patch, and so is every
+      "how much of this points along that" question you will meet later.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import { bindSlider, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { clamp, fmt, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha } from "@/lib/fun/theme"
+
+  const HALF_Y = 2.2
+  const HANDLE = 28
+
+  registerFunApp('[data-fun-app="dot-product"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const ax = bindSlider(root, "ax", { format: hundredths, onInput: redraw })
+    const ay = bindSlider(root, "ay", { format: hundredths, onInput: redraw })
+    const bx = bindSlider(root, "bx", { format: hundredths, onInput: redraw })
+    const by = bindSlider(root, "by", { format: hundredths, onInput: redraw })
+    const showProjection = bindToggle(root, "projection", redraw)
+    const showUnit = bindToggle(root, "unit", redraw)
+
+    const A = (): [number, number] => [ax.value / 100, ay.value / 100]
+    const B = (): [number, number] => [bx.value / 100, by.value / 100]
+
+    let dragging: "a" | "b" | null = null
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        const [axv, ayv] = A()
+        const [bxv, byv] = B()
+        const toA = Math.hypot(info.x - plot.sx(axv), info.y - plot.sy(ayv))
+        const toB = Math.hypot(info.x - plot.sx(bxv), info.y - plot.sy(byv))
+        if (Math.min(toA, toB) > HANDLE) return false
+        dragging = toA <= toB ? "a" : "b"
+        move(info.x, info.y)
+      },
+      onMove(info) {
+        if (dragging) move(info.x, info.y)
+      },
+      onUp() {
+        dragging = null
+      },
+    })
+
+    function move(sx: number, sy: number) {
+      const x = Math.round(clamp(plot.wx(sx), -3, 3) * 100)
+      const y = Math.round(clamp(plot.wy(sy), -2, 2) * 100)
+      if (dragging === "a") {
+        ax.set(x)
+        ay.set(y)
+      } else {
+        bx.set(x)
+        by.set(y)
+      }
+      redraw()
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const aspect = width / height
+        plot.fit(width, height, {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        })
+
+        plot.grid(alpha(palette.foreground, 0.07), 0.5)
+        plot.axes(alpha(palette.foreground, 0.28))
+
+        if (showUnit.on) {
+          plot.worldCircle(0, 0, 1, {
+            color: alpha(palette.foreground, 0.3),
+            width: 1,
+            dash: [4, 4],
+          })
+        }
+
+        const [avx, avy] = A()
+        const [bvx, bvy] = B()
+        const aLength = hypot(avx, avy)
+        const bLength = hypot(bvx, bvy)
+        const dot = avx * bvx + avy * bvy
+        const cos = aLength * bLength > 1e-9 ? dot / (aLength * bLength) : 0
+        const angle = (Math.acos(clamp(cos, -1, 1)) * 180) / Math.PI
+        const comp = bLength > 1e-9 ? dot / bLength : 0
+
+        if (showProjection.on && bLength > 1e-9) {
+          const ux = bvx / bLength
+          const uy = bvy / bLength
+          const px = ux * comp
+          const py = uy * comp
+          // The shadow itself, laid on b, then the light ray that casts it.
+          plot.polyline([0, 0, px, py], {
+            color: alpha(palette.destructive, 0.75),
+            width: 10,
+            cap: "butt",
+          })
+          plot.polyline([avx, avy, px, py], {
+            color: alpha(palette.foreground, 0.5),
+            width: 1.5,
+            dash: [5, 4],
+          })
+          plot.disc(px, py, 4.5, { fill: palette.destructive })
+        }
+
+        // The angle between them, as a wedge at the origin.
+        if (aLength > 1e-9 && bLength > 1e-9) {
+          const radius = Math.min(aLength, bLength) * 0.32 * plot.scale
+          const from = Math.atan2(-avy, avx)
+          const to = Math.atan2(-bvy, bvx)
+          let delta = to - from
+          while (delta > Math.PI) delta -= Math.PI * 2
+          while (delta < -Math.PI) delta += Math.PI * 2
+          ctx.beginPath()
+          ctx.moveTo(plot.sx(0), plot.sy(0))
+          ctx.arc(plot.sx(0), plot.sy(0), radius, from, from + delta, delta < 0)
+          ctx.closePath()
+          ctx.fillStyle = alpha(
+            Math.abs(angle - 90) < 0.5 ? palette.destructive : palette.accent,
+            0.2,
+          )
+          ctx.fill()
+        }
+
+        plot.arrow(0, 0, bvx, bvy, { color: palette.primary, width: 4 })
+        plot.arrow(0, 0, avx, avy, { color: palette.accent, width: 4 })
+        // Hollow handles, so the arrowheads underneath still read; labels
+        // pushed a little past the tip rather than sitting on top of it.
+        plot.disc(avx, avy, 11, {
+          stroke: alpha(palette.accent, 0.55),
+          width: 2,
+        })
+        plot.disc(bvx, bvy, 11, {
+          stroke: alpha(palette.primary, 0.55),
+          width: 2,
+        })
+
+        const nudge = 0.26
+        const label = (text: string, vx: number, vy: number, color: string) => {
+          const length = hypot(vx, vy) || 1
+          plot.text(
+            text,
+            vx + (vx / length) * nudge,
+            vy + (vy / length) * nudge,
+            {
+              color,
+              size: 14,
+              weight: "600",
+            },
+          )
+        }
+        label("a", avx, avy, palette.accent)
+        label("b", bvx, bvy, palette.primary)
+
+        setReadout("dot", fmt(dot, 3))
+        setReadout("angle", `${fmt(angle, 1)}°`)
+        setReadout("comp", fmt(comp, 3))
+        setReadout("check", fmt(aLength * bLength * cos, 3))
+
+        const square = Math.abs(dot) < 5e-3
+        if (square) {
+          plot.panel(14, 14, 196, 32, palette)
+          plot.screenText("perpendicular: a · b = 0", 14 + 98, 30, {
+            color: palette.destructive,
+            size: 12,
+            weight: "600",
+          })
+        }
+      },
+    })
+
+    const disposeControls = disposeAll([
+      ax,
+      ay,
+      bx,
+      by,
+      showProjection,
+      showUnit,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

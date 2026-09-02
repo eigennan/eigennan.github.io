@@ -1,0 +1,474 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const fields = [
+  { value: "swirl", label: "Swirl  (−y, x)" },
+  { value: "east", label: "Steady drift  (1, 0)" },
+  { value: "source", label: "Outward  (x, y)" },
+  { value: "shear", label: "Shear  (y, 0)" },
+  { value: "saddle", label: "Saddle  (x, −y)" },
+]
+---
+
+<FunStage
+  slug="work-and-circulation"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A path drawn through a vector field, shaded along its length by how much the field pushes along it, with a graph of that push underneath and a running total."
+>
+  <Fragment slot="controls">
+    <FunSelect name="field" label="Field" options={fields} />
+    <FunSlider
+      name="ax"
+      label="Start x"
+      min={-250}
+      max={250}
+      step={1}
+      value={-160}
+      display="-1.60"
+    />
+    <FunSlider
+      name="ay"
+      label="Start y"
+      min={-160}
+      max={160}
+      step={1}
+      value={-90}
+      display="-0.90"
+    />
+    <FunSlider
+      name="bx"
+      label="End x"
+      min={-250}
+      max={250}
+      step={1}
+      value={160}
+      display="1.60"
+    />
+    <FunSlider
+      name="by"
+      label="End y"
+      min={-160}
+      max={160}
+      step={1}
+      value={90}
+      display="0.90"
+    />
+    <FunSlider
+      name="bow"
+      label="Bow"
+      min={-200}
+      max={200}
+      step={1}
+      value={90}
+      display="0.90"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="closed" label="Close the loop" />
+      <FunToggle name="reverse" label="Walk it backwards" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "work", label: "∫ F · dr along the path" },
+        { name: "length", label: "length of the path" },
+        { name: "avg", label: "average push along it" },
+      ]}
+    />
+    <p class="fun-note">
+      Warm stretches are where the field pushes you forward; cool stretches are
+      where you're fighting it.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Walk from one point to another through a field of forces. At every instant
+      only the part of the force pointing <em>along</em> your direction of
+      travel does any work — a sideways push moves you off course but costs and
+      gains nothing. That component is <strong>F · T</strong>, and adding it up
+      as you go is the line integral <strong>∫ F · dr</strong>.
+    </p>
+    <p>
+      The graph underneath is exactly that quantity, plotted against how far
+      along you are. Warm where the field helps, cool where it hinders, and the
+      total is the signed area under it. Bow the path and you can watch
+      stretches flip from one to the other.
+    </p>
+    <p>
+      Two things follow immediately. First, walking the path
+      <strong>backwards </strong>
+      negates every single contribution, so the whole integral changes sign —
+      direction is part of the question, not an afterthought. Second, the answer
+      depends on the <em>path</em>, not just the endpoints: bow it and the
+      number moves.
+    </p>
+    <p>
+      Unless it doesn't. For some fields, bowing the path changes nothing at all
+      — and that turns out to be a very special property worth chasing down.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Vector2,
+    clamp,
+    fmt,
+    hypot,
+    lineIntegral,
+  } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { type Palette, alpha, mix } from "@/lib/fun/theme"
+
+  const FIELDS: Record<string, Vector2> = {
+    swirl: (x, y) => [-y, x],
+    east: () => [1, 0],
+    source: (x, y) => [x, y],
+    shear: (_x, y) => [y, 0],
+    saddle: (x, y) => [x, -y],
+  }
+
+  const HALF_Y = 2
+  const STRIP_HEIGHT = 104
+  const SAMPLES = 320
+
+  registerFunApp('[data-fun-app="work-and-circulation"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    const field = bindSelect(root, "field", redraw)
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const ax = bindSlider(root, "ax", { format: hundredths, onInput: redraw })
+    const ay = bindSlider(root, "ay", { format: hundredths, onInput: redraw })
+    const bx = bindSlider(root, "bx", { format: hundredths, onInput: redraw })
+    const by = bindSlider(root, "by", { format: hundredths, onInput: redraw })
+    const bow = bindSlider(root, "bow", { format: hundredths, onInput: redraw })
+    const closed = bindToggle(root, "closed", redraw)
+    const reverse = bindToggle(root, "reverse", redraw)
+
+    const currentField = () => FIELDS[field.value] ?? FIELDS.swirl
+    const A = (): [number, number] => [ax.value / 100, ay.value / 100]
+    const B = (): [number, number] => [bx.value / 100, by.value / 100]
+
+    /**
+     * A quadratic Bezier from A to B, bowed sideways by the slider. Closing
+     * the loop appends the mirror-image arc back from B to A, so the same two
+     * handles describe both an open path and a closed circuit.
+     */
+    function path(t: number): [number, number] {
+      const [x0, y0] = A()
+      const [x1, y1] = B()
+      const dx = x1 - x0
+      const dy = y1 - y0
+      const length = hypot(dx, dy) || 1
+      const offset = bow.value / 100
+
+      const arc = (s: number, lift: number): [number, number] => {
+        const cx = (x0 + x1) / 2 - (dy / length) * lift * 2
+        const cy = (y0 + y1) / 2 + (dx / length) * lift * 2
+        const u = 1 - s
+        return [
+          u * u * x0 + 2 * u * s * cx + s * s * x1,
+          u * u * y0 + 2 * u * s * cy + s * s * y1,
+        ]
+      }
+
+      const s = reverse.on ? 1 - t : t
+      if (!closed.on) return arc(s, offset)
+      // First half out along the bow, second half back along its mirror.
+      return s < 0.5 ? arc(s * 2, offset) : arc(1 - (s - 0.5) * 2, -offset)
+    }
+
+    const HANDLE_RADIUS = 26
+    let dragging: "a" | "b" | null = null
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        const [x0, y0] = A()
+        const [x1, y1] = B()
+        const toA = Math.hypot(info.x - plot.sx(x0), info.y - plot.sy(y0))
+        const toB = Math.hypot(info.x - plot.sx(x1), info.y - plot.sy(y1))
+        if (Math.min(toA, toB) > HANDLE_RADIUS) return false
+        dragging = toA <= toB ? "a" : "b"
+        move(info.x, info.y)
+      },
+      onMove(info) {
+        if (dragging) move(info.x, info.y)
+      },
+      onUp() {
+        dragging = null
+      },
+    })
+
+    function move(sx: number, sy: number) {
+      const x = Math.round(clamp(plot.wx(sx), -2.5, 2.5) * 100)
+      const y = Math.round(clamp(plot.wy(sy), -1.6, 1.6) * 100)
+      if (dragging === "a") {
+        ax.set(x)
+        ay.set(y)
+      } else {
+        bx.set(x)
+        by.set(y)
+      }
+      redraw()
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /** F·T and the arc length, sampled evenly in the path parameter. */
+    function profile() {
+      const F = currentField()
+      const push: number[] = []
+      const points: number[] = []
+      let length = 0
+      let previous = path(0)
+
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = i / SAMPLES
+        const [x, y] = path(t)
+        points.push(x, y)
+        if (i > 0) length += Math.hypot(x - previous[0], y - previous[1])
+        previous = [x, y]
+
+        const h = 1e-4
+        const [fx, fy] = path(Math.min(1, t + h))
+        const [gx, gy] = path(Math.max(0, t - h))
+        const speed = Math.hypot(fx - gx, fy - gy) || 1e-9
+        const [p, q] = F(x, y)
+        push.push((p * (fx - gx) + q * (fy - gy)) / speed)
+      }
+
+      return { push, points, length }
+    }
+
+    function drawStrip(
+      ctx: CanvasRenderingContext2D,
+      palette: Palette,
+      width: number,
+      top: number,
+      push: number[],
+      warm: string,
+      cool: string,
+    ) {
+      const padX = 16
+      const innerWidth = width - padX * 2
+      const innerTop = top + 24
+      const innerHeight = STRIP_HEIGHT - 40
+
+      ctx.beginPath()
+      ctx.moveTo(0, top)
+      ctx.lineTo(width, top)
+      ctx.strokeStyle = alpha(palette.border, 1)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      const peak = Math.max(...push.map(Math.abs), 1e-6)
+      const zero = innerTop + innerHeight / 2
+      const px = (i: number) => padX + (i / (push.length - 1)) * innerWidth
+      const py = (value: number) => zero - (value / peak) * (innerHeight / 2)
+
+      // The signed area under this curve is the integral, so fill it.
+      for (let i = 0; i < push.length - 1; i++) {
+        ctx.beginPath()
+        ctx.moveTo(px(i), zero)
+        ctx.lineTo(px(i), py(push[i]))
+        ctx.lineTo(px(i + 1), py(push[i + 1]))
+        ctx.lineTo(px(i + 1), zero)
+        ctx.closePath()
+        ctx.fillStyle = alpha(push[i] >= 0 ? warm : cool, 0.4)
+        ctx.fill()
+      }
+
+      ctx.beginPath()
+      push.forEach((value, i) => {
+        if (i === 0) ctx.moveTo(px(i), py(value))
+        else ctx.lineTo(px(i), py(value))
+      })
+      ctx.strokeStyle = palette.foreground
+      ctx.lineWidth = 1.75
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.moveTo(padX, zero)
+      ctx.lineTo(width - padX, zero)
+      ctx.strokeStyle = alpha(palette.foreground, 0.35)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      plot.screenText("F · T along the path", padX, top + 7, {
+        color: palette["muted-foreground"],
+        size: 11,
+        align: "left",
+        baseline: "top",
+      })
+      plot.screenText("start", padX, top + STRIP_HEIGHT - 4, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "left",
+        baseline: "bottom",
+      })
+      plot.screenText("end", width - padX, top + STRIP_HEIGHT - 4, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "right",
+        baseline: "bottom",
+      })
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const F = currentField()
+        const mapHeight = height - STRIP_HEIGHT
+        const aspect = width / mapHeight
+        plot.fit(width, mapHeight, {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        })
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, mapHeight)
+        ctx.clip()
+
+        plot.grid(alpha(palette.foreground, 0.07))
+        plot.axes(alpha(palette.foreground, 0.24))
+
+        // The field, as a quiet backdrop; the path is the subject.
+        const step = (2 * HALF_Y) / 12
+        let peak = 1e-9
+        for (let x = plot.bounds.xMin; x <= plot.bounds.xMax; x += step) {
+          for (let y = plot.bounds.yMin; y <= plot.bounds.yMax; y += step) {
+            peak = Math.max(peak, hypot(...F(x, y)))
+          }
+        }
+        for (let x = plot.bounds.xMin; x <= plot.bounds.xMax; x += step) {
+          for (let y = plot.bounds.yMin; y <= plot.bounds.yMax; y += step) {
+            const [u, v] = F(x, y)
+            const magnitude = hypot(u, v)
+            if (magnitude < peak * 0.05) continue
+            const drawn = Math.min(magnitude / peak, 1) * step * 0.7
+            plot.arrow(
+              x - ((u / magnitude) * drawn) / 2,
+              y - ((v / magnitude) * drawn) / 2,
+              x + ((u / magnitude) * drawn) / 2,
+              y + ((v / magnitude) * drawn) / 2,
+              {
+                color: alpha(palette["muted-foreground"], 0.5),
+                width: 1.2,
+                head: 5,
+              },
+            )
+          }
+        }
+
+        const { push, points, length } = profile()
+        const warm = palette.primary
+        const cool = palette.accent
+
+        // Colour each little piece of the path by the push it feels there.
+        const peakPush = Math.max(...push.map(Math.abs), 1e-6)
+        for (let i = 0; i < push.length - 1; i++) {
+          const strength = Math.min(Math.abs(push[i]) / peakPush, 1)
+          plot.polyline(
+            [
+              points[i * 2],
+              points[i * 2 + 1],
+              points[i * 2 + 2],
+              points[i * 2 + 3],
+            ],
+            {
+              color: mix(
+                palette.background,
+                push[i] >= 0 ? warm : cool,
+                0.3 + 0.7 * strength,
+              ),
+              width: 5,
+              cap: "butt",
+            },
+          )
+        }
+
+        // Chevrons showing which way the walk goes.
+        for (let k = 1; k <= 7; k++) {
+          const t = k / 8
+          const here = path(t)
+          const ahead = path(Math.min(1, t + 0.012))
+          plot.arrow(here[0], here[1], ahead[0], ahead[1], {
+            color: palette.foreground,
+            width: 1.6,
+            head: 8,
+          })
+        }
+
+        const [x0, y0] = A()
+        const [x1, y1] = B()
+        plot.disc(x0, y0, 7, {
+          fill: palette.background,
+          stroke: palette.foreground,
+          width: 2.5,
+        })
+        if (!closed.on) {
+          plot.disc(x1, y1, 7, {
+            fill: palette.foreground,
+            stroke: palette.background,
+            width: 2.5,
+          })
+        }
+
+        ctx.restore()
+
+        const work = lineIntegral(F, path, 0, 1)
+        setReadout("work", fmt(work, 4))
+        setReadout("length", fmt(length, 4))
+        setReadout("avg", length > 1e-9 ? fmt(work / length, 4) : "—")
+
+        drawStrip(ctx, palette, width, mapHeight, push, warm, cool)
+      },
+    })
+
+    const disposeControls = disposeAll([
+      field,
+      ax,
+      ay,
+      bx,
+      by,
+      bow,
+      closed,
+      reverse,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

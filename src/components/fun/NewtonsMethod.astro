@@ -1,0 +1,397 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const systems = [
+  { value: "cube", label: "z³ − 1" },
+  { value: "quartic", label: "z⁴ − 1" },
+  { value: "nasty", label: "z³ − 2z + 2" },
+  { value: "quintic", label: "z⁵ − 1" },
+]
+---
+
+<FunStage
+  slug="newtons-method"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A plane coloured by which root Newton's method converges to from each starting point, with one traced path of iterates."
+>
+  <Fragment slot="controls">
+    <FunSelect name="system" label="Solving" options={systems} />
+    <FunSlider
+      name="steps"
+      label="Iterations"
+      min={1}
+      max={30}
+      step={1}
+      value={12}
+      display="12"
+    />
+    <FunSlider
+      name="sx"
+      label="Seed x"
+      min={-200}
+      max={200}
+      step={1}
+      value={-90}
+      display="-0.90"
+    />
+    <FunSlider
+      name="sy"
+      label="Seed y"
+      min={-200}
+      max={200}
+      step={1}
+      value={60}
+      display="0.60"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="basins" label="Basins" pressed />
+      <FunToggle name="speed" label="Shade by speed" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "landed", label: "converged to" },
+        { name: "took", label: "steps taken" },
+        { name: "residual", label: "how close to zero" },
+      ]}
+    />
+    <p class="fun-note">
+      Click anywhere to move the seed. Near a boundary, a hair's move sends it
+      to a completely different root.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Newton's method is the most natural idea in numerical mathematics: you
+      can't solve the equation, so replace the function by its tangent line —
+      which you <em>can</em> solve — jump to where that hits zero, and repeat.
+      Each step is a linear approximation, and the derivative is what makes it
+      possible.
+    </p>
+    <p>
+      It works beautifully. Close to a root the error <strong>squares</strong>
+      every step: three correct digits become six, then twelve. That's why
+      almost every solver in existence is Newton's method wearing a disguise,
+      and why the same idea generalizes to several variables with the derivative
+      matrix in place of the derivative.
+    </p>
+    <p>
+      The colouring shows which root each starting point ends up at. Near any
+      one root the picture is calm — everything nearby goes where you'd expect.
+      But the boundaries between the regions are not curves. They are infinitely
+      intricate, and every point on one has <em>all</em> the roots arbitrarily
+      close by.
+    </p>
+    <p>
+      So the method's guarantee is strictly local. Start close enough and it
+      converges spectacularly fast; start somewhere ambiguous and where you land
+      is, for practical purposes, unpredictable. "Good enough initial guess" is
+      doing enormous work in that sentence.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { clamp, fmt, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha, mix } from "@/lib/fun/theme"
+
+  type Complex = [number, number]
+
+  const mul = (a: Complex, b: Complex): Complex => [
+    a[0] * b[0] - a[1] * b[1],
+    a[0] * b[1] + a[1] * b[0],
+  ]
+  const div = (a: Complex, b: Complex): Complex => {
+    const d = b[0] * b[0] + b[1] * b[1]
+    if (d < 1e-300) return [0, 0]
+    return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]
+  }
+  const sub = (a: Complex, b: Complex): Complex => [a[0] - b[0], a[1] - b[1]]
+  const powN = (z: Complex, n: number): Complex => {
+    let out: Complex = [1, 0]
+    for (let k = 0; k < n; k++) out = mul(out, z)
+    return out
+  }
+
+  interface System {
+    f: (z: Complex) => Complex
+    df: (z: Complex) => Complex
+    roots: Complex[]
+  }
+
+  /** The n-th roots of unity, which are where z^n − 1 vanishes. */
+  function unity(n: number): Complex[] {
+    return Array.from({ length: n }, (_, k) => [
+      Math.cos((2 * Math.PI * k) / n),
+      Math.sin((2 * Math.PI * k) / n),
+    ])
+  }
+
+  const SYSTEMS: Record<string, System> = {
+    cube: {
+      f: (z) => sub(powN(z, 3), [1, 0]),
+      df: (z) => mul([3, 0], powN(z, 2)),
+      roots: unity(3),
+    },
+    quartic: {
+      f: (z) => sub(powN(z, 4), [1, 0]),
+      df: (z) => mul([4, 0], powN(z, 3)),
+      roots: unity(4),
+    },
+    quintic: {
+      f: (z) => sub(powN(z, 5), [1, 0]),
+      df: (z) => mul([5, 0], powN(z, 4)),
+      roots: unity(5),
+    },
+    nasty: {
+      // The textbook cautionary tale: Newton cycles forever from z = 0.
+      f: (z) => sub(powN(z, 3), sub(mul([2, 0], z), [2, 0])),
+      df: (z) => sub(mul([3, 0], powN(z, 2)), [2, 0]),
+      roots: [
+        [-1.7692923542, 0],
+        [0.8846461771, 0.589742805],
+        [0.8846461771, -0.589742805],
+      ],
+    },
+  }
+
+  const HALF_Y = 1.6
+  const MAX_STEPS = 40
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="newtons-method"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let basins: HTMLCanvasElement | null = null
+    let basinKey = ""
+
+    const system = bindSelect(root, "system", () => {
+      basins = null
+      redraw()
+    })
+    const steps = bindSlider(root, "steps", {
+      format: (v) => String(v),
+      onInput: redraw,
+    })
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const sx = bindSlider(root, "sx", { format: hundredths, onInput: redraw })
+    const sy = bindSlider(root, "sy", { format: hundredths, onInput: redraw })
+    const showBasins = bindToggle(root, "basins", () => {
+      basins = null
+      redraw()
+    })
+    const shadeSpeed = bindToggle(root, "speed", () => {
+      basins = null
+      redraw()
+    })
+
+    const current = () => SYSTEMS[system.value] ?? SYSTEMS.cube
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown: (info) => seed(info.x, info.y),
+      onMove: (info) => seed(info.x, info.y),
+    })
+
+    function seed(px: number, py: number) {
+      sx.set(Math.round(clamp(plot.wx(px), -2, 2) * 100))
+      sy.set(Math.round(clamp(plot.wy(py), -2, 2) * 100))
+      redraw()
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /** Iterate from `z`, returning which root it reached and how quickly. */
+    function iterate(z: Complex, limit: number) {
+      const { f, df, roots } = current()
+      const path: number[] = [z[0], z[1]]
+      let current2 = z
+      for (let step = 0; step < limit; step++) {
+        const slope = df(current2)
+        if (hypot(slope[0], slope[1]) < 1e-14) break
+        current2 = sub(current2, div(f(current2), slope))
+        if (!Number.isFinite(current2[0]) || !Number.isFinite(current2[1]))
+          break
+        path.push(current2[0], current2[1])
+        const hit = roots.findIndex(
+          (r) => hypot(current2[0] - r[0], current2[1] - r[1]) < 1e-7,
+        )
+        if (hit >= 0) return { path, root: hit, steps: step + 1, at: current2 }
+      }
+      const nearest = roots.reduce(
+        (best, r, index) => {
+          const d = hypot(current2[0] - r[0], current2[1] - r[1])
+          return d < best.d ? { d, index } : best
+        },
+        { d: Number.POSITIVE_INFINITY, index: -1 },
+      )
+      return {
+        path,
+        root: nearest.d < 1e-4 ? nearest.index : -1,
+        steps: limit,
+        at: current2,
+      }
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const aspect = Math.round((width / height) * 50) / 50
+        const bounds = {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        }
+        plot.fit(width, height, bounds)
+
+        const { roots } = current()
+        const palette5 = [
+          palette.accent,
+          palette.primary,
+          palette.destructive,
+          mix(palette.accent, palette.primary, 0.5),
+          mix(palette.primary, palette.destructive, 0.5),
+        ].map(rgb)
+
+        if (showBasins.on) {
+          const key = `${system.value}|${palette.background}|${shadeSpeed.on}|${Math.round(width)}`
+          if (!basins || basinKey !== key) {
+            basinKey = key
+            const cols = 300
+            const rows = Math.max(1, Math.round((cols * height) / width))
+            const raster = document.createElement("canvas")
+            raster.width = cols
+            raster.height = rows
+            const rasterCtx = raster.getContext("2d")
+            if (rasterCtx) {
+              const image = rasterCtx.createImageData(cols, rows)
+              const background = rgb(palette.background)
+              for (let j = 0; j < rows; j++) {
+                const y = bounds.yMax - ((bounds.yMax - bounds.yMin) * j) / rows
+                for (let i = 0; i < cols; i++) {
+                  const x =
+                    bounds.xMin + ((bounds.xMax - bounds.xMin) * i) / cols
+                  const result = iterate([x, y], MAX_STEPS)
+                  const offset = (j * cols + i) * 4
+                  if (result.root < 0) {
+                    image.data[offset] = background[0]
+                    image.data[offset + 1] = background[1]
+                    image.data[offset + 2] = background[2]
+                  } else {
+                    const tone = palette5[result.root % palette5.length]
+                    // Fast convergence reads pale, slow reads saturated, so
+                    // the boundaries between basins show up as dark filigree.
+                    const t = shadeSpeed.on
+                      ? clamp(result.steps / 16, 0, 1)
+                      : 0.55
+                    image.data[offset] =
+                      background[0] +
+                      (tone[0] - background[0]) * (0.25 + 0.75 * t)
+                    image.data[offset + 1] =
+                      background[1] +
+                      (tone[1] - background[1]) * (0.25 + 0.75 * t)
+                    image.data[offset + 2] =
+                      background[2] +
+                      (tone[2] - background[2]) * (0.25 + 0.75 * t)
+                  }
+                  image.data[offset + 3] = 255
+                }
+              }
+              rasterCtx.putImageData(image, 0, 0)
+              basins = raster
+            }
+          }
+          if (basins) {
+            ctx.imageSmoothingEnabled = true
+            ctx.drawImage(basins, 0, 0, width, height)
+          }
+        }
+
+        plot.axes(alpha(palette.foreground, 0.3))
+
+        const start: [number, number] = [sx.value / 100, sy.value / 100]
+        const run = iterate(start, steps.value)
+        plot.polyline(run.path, {
+          color: alpha(palette.foreground, 0.85),
+          width: 2,
+        })
+        for (let i = 0; i < run.path.length; i += 2) {
+          plot.disc(run.path[i], run.path[i + 1], i === 0 ? 6 : 3.5, {
+            fill: i === 0 ? palette.background : alpha(palette.foreground, 0.8),
+            stroke: i === 0 ? palette.foreground : undefined,
+            width: 2.5,
+          })
+        }
+
+        roots.forEach((r, index) => {
+          plot.disc(r[0], r[1], 7, {
+            fill: [palette.accent, palette.primary, palette.destructive][
+              index % 3
+            ],
+            stroke: palette.background,
+            width: 2.5,
+          })
+        })
+
+        const { f } = current()
+        const residual = f(run.at)
+        setReadout(
+          "landed",
+          run.root >= 0
+            ? `root ${run.root + 1} of ${roots.length}`
+            : "nowhere yet",
+        )
+        setReadout("took", String(run.steps))
+        setReadout("residual", fmt(hypot(residual[0], residual[1]), 6))
+      },
+    })
+
+    const disposeControls = disposeAll([
+      system,
+      steps,
+      sx,
+      sy,
+      showBasins,
+      shadeSpeed,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

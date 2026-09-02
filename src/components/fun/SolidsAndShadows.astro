@@ -1,0 +1,391 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const solids = [
+  { value: "tetra", label: "Tetrahedron  x + y + z ≤ 1" },
+  { value: "cap", label: "Under a paraboloid" },
+  { value: "hemisphere", label: "Hemisphere" },
+  { value: "wedge", label: "Cylinder cut by a slanted plane" },
+]
+
+const orders = [
+  { value: "z", label: "z innermost  —  ∬ over the xy shadow" },
+  { value: "y", label: "y innermost  —  ∬ over the xz shadow" },
+  { value: "x", label: "x innermost  —  ∬ over the yz shadow" },
+]
+---
+
+<FunStage
+  slug="solids-and-shadows"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A solid floating above the coordinate planes, casting a shadow onto each of them, with the shadow belonging to the chosen integration order picked out."
+>
+  <Fragment slot="controls">
+    <FunSelect name="solid" label="Solid" options={solids} />
+    <FunSelect name="order" label="Integration order" options={orders} />
+    <div class="fun-toggles">
+      <FunToggle name="shadows" label="All three shadows" pressed />
+      <FunToggle name="spin" label="Spin" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "outer", label: "the outer double integral runs over" },
+        { name: "inner", label: "the inner integral runs from" },
+        { name: "volume", label: "volume" },
+        { name: "exact", label: "exact volume" },
+      ]}
+    />
+    <p class="fun-note">
+      The shadow is not decoration. It is literally the region the outer double
+      integral is taken over.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Setting up a triple integral is a question about <strong>shadows</strong>.
+      Whichever variable you integrate first, you're firing a needle through the
+      solid in that direction; the inner limits are where the needle enters and
+      leaves. Once every needle in a given line of fire is accounted for, what
+      remains is a flat region — the solid's shadow on the perpendicular plane —
+      and that's what the outer double integral runs over.
+    </p>
+    <p>
+      So the recipe is mechanical once you see it. Pick a direction. Find where
+      a needle along it enters and exits: those are your inner limits, and they
+      are functions of the other two variables. Then project the solid onto the
+      plane perpendicular to that direction and set up an ordinary double
+      integral over the projection.
+    </p>
+    <p>
+      Switch the order and every part of that changes. Different needle,
+      different entry and exit surfaces, different shadow. The solid is the
+      same, the volume is the same, and the three sets of limits look nothing
+      alike — which is why "just draw it" is the standing advice, and why the
+      hard part of a triple integral is almost never the antiderivative.
+    </p>
+    <p>
+      Some orders are much kinder than others. Watch which shadow is a simple
+      shape and which is awkward, and you have your answer about which order to
+      actually use.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { bindSelect, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+
+  interface Solid {
+    inside: (x: number, y: number, z: number) => boolean
+    /** Bounding box, as [min, max] on each axis. */
+    box: [number, number][]
+    exact: number
+    limits: Record<string, { outer: string; inner: string }>
+  }
+
+  const SOLIDS: Record<string, Solid> = {
+    tetra: {
+      inside: (x, y, z) => x >= 0 && y >= 0 && z >= 0 && x + y + z <= 1,
+      box: [
+        [0, 1],
+        [0, 1],
+        [0, 1],
+      ],
+      exact: 1 / 6,
+      limits: {
+        z: {
+          outer: "the triangle x + y ≤ 1",
+          inner: "z = 0 up to z = 1 − x − y",
+        },
+        y: {
+          outer: "the triangle x + z ≤ 1",
+          inner: "y = 0 up to y = 1 − x − z",
+        },
+        x: {
+          outer: "the triangle y + z ≤ 1",
+          inner: "x = 0 up to x = 1 − y − z",
+        },
+      },
+    },
+    cap: {
+      inside: (x, y, z) => z >= 0 && z <= 1 - x * x - y * y,
+      box: [
+        [-1, 1],
+        [-1, 1],
+        [0, 1],
+      ],
+      exact: Math.PI / 2,
+      limits: {
+        z: { outer: "the unit disk", inner: "z = 0 up to z = 1 − x² − y²" },
+        y: { outer: "the region under z = 1 − x²", inner: "±√(1 − x² − z)" },
+        x: { outer: "the region under z = 1 − y²", inner: "±√(1 − y² − z)" },
+      },
+    },
+    hemisphere: {
+      inside: (x, y, z) => z >= 0 && x * x + y * y + z * z <= 1,
+      box: [
+        [-1, 1],
+        [-1, 1],
+        [0, 1],
+      ],
+      exact: (2 * Math.PI) / 3,
+      limits: {
+        z: { outer: "the unit disk", inner: "z = 0 up to z = √(1 − x² − y²)" },
+        y: { outer: "a half disk in the xz-plane", inner: "±√(1 − x² − z²)" },
+        x: { outer: "a half disk in the yz-plane", inner: "±√(1 − y² − z²)" },
+      },
+    },
+    wedge: {
+      inside: (x, y, z) => x * x + y * y <= 1 && z >= 0 && z <= 0.5 + 0.5 * x,
+      box: [
+        [-1, 1],
+        [-1, 1],
+        [0, 1],
+      ],
+      // ∬ over the unit disk of (0.5 + 0.5x) = 0.5 · π.
+      exact: Math.PI / 2,
+      limits: {
+        z: { outer: "the unit disk", inner: "z = 0 up to z = ½ + x/2" },
+        y: { outer: "a region in the xz-plane", inner: "±√(1 − x²)" },
+        x: {
+          outer: "a region in the yz-plane",
+          inner: "2z − 1 up to √(1 − y²)",
+        },
+      },
+    },
+  }
+
+  const GRID = 120
+
+  registerFunApp('[data-fun-app="solids-and-shadows"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const solid = bindSelect(root, "solid", refresh)
+    const order = bindSelect(root, "order", refresh)
+    const showShadows = bindToggle(root, "shadows", refresh)
+    const spin = bindToggle(root, "spin", (on) => {
+      stage?.setAnimating(on)
+      refresh()
+    })
+
+    const current = () => SOLIDS[solid.value] ?? SOLIDS.tetra
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /**
+     * Voxels rather than a fitted surface: the whole point is that the solid,
+     * its shadows and its volume are three views of one membership test, and
+     * sampling that test directly keeps all three exactly consistent.
+     */
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const { inside, box, exact, limits } = current()
+      const axis = order.value as "x" | "y" | "z"
+
+      addLights(three, scene, 1)
+      scene.add(makeAxes(three, 1.5, palette["muted-foreground"], 1.5))
+
+      const steps = box.map(([lo, hi]) => (hi - lo) / GRID)
+      const cell = steps[0] * steps[1] * steps[2]
+      let volume = 0
+
+      // Occupancy of each shadow plane, at a coarser resolution than the
+      // volume scan so the plates read as solid regions rather than dots.
+      const SHADOW = 90
+      const xy = new Uint8Array(SHADOW * SHADOW)
+      const xz = new Uint8Array(SHADOW * SHADOW)
+      const yz = new Uint8Array(SHADOW * SHADOW)
+      const at = (lo: number, hi: number, i: number, n: number) =>
+        lo + ((hi - lo) * (i + 0.5)) / n
+
+      const positions: number[] = []
+      const VOXELS = 34
+      for (let i = 0; i < GRID; i++) {
+        const x = at(box[0][0], box[0][1], i, GRID)
+        for (let j = 0; j < GRID; j++) {
+          const y = at(box[1][0], box[1][1], j, GRID)
+          for (let k = 0; k < GRID; k++) {
+            const z = at(box[2][0], box[2][1], k, GRID)
+            if (!inside(x, y, z)) continue
+            volume += cell
+            const si = Math.min(SHADOW - 1, Math.floor((i * SHADOW) / GRID))
+            const sj = Math.min(SHADOW - 1, Math.floor((j * SHADOW) / GRID))
+            const sk = Math.min(SHADOW - 1, Math.floor((k * SHADOW) / GRID))
+            xy[sj * SHADOW + si] = 1
+            xz[sk * SHADOW + si] = 1
+            yz[sk * SHADOW + sj] = 1
+          }
+        }
+      }
+
+      // A coarse voxel pass for the body itself.
+      const dummy = new three.Object3D()
+      const vStep = box.map(([lo, hi]) => (hi - lo) / VOXELS)
+      for (let i = 0; i < VOXELS; i++) {
+        const x = at(box[0][0], box[0][1], i, VOXELS)
+        for (let j = 0; j < VOXELS; j++) {
+          const y = at(box[1][0], box[1][1], j, VOXELS)
+          for (let k = 0; k < VOXELS; k++) {
+            const z = at(box[2][0], box[2][1], k, VOXELS)
+            if (!inside(x, y, z)) continue
+            positions.push(x, y, z)
+          }
+        }
+      }
+
+      const body = new three.InstancedMesh(
+        new three.BoxGeometry(vStep[0], vStep[1], vStep[2]),
+        new three.MeshStandardMaterial({
+          color: palette.accent,
+          roughness: 0.88,
+        }),
+        positions.length / 3,
+      )
+      for (let index = 0; index < positions.length / 3; index++) {
+        dummy.position.set(
+          positions[index * 3],
+          positions[index * 3 + 1],
+          positions[index * 3 + 2],
+        )
+        dummy.scale.setScalar(1)
+        dummy.updateMatrix()
+        body.setMatrixAt(index, dummy.matrix)
+      }
+      body.instanceMatrix.needsUpdate = true
+      scene.add(body)
+
+      // Shadows, laid just off each coordinate plane so they never z-fight.
+      const plates: [Uint8Array, "xy" | "xz" | "yz", string][] = [
+        [
+          xy,
+          "xy",
+          axis === "z" ? palette.destructive : palette["muted-foreground"],
+        ],
+        [
+          xz,
+          "xz",
+          axis === "y" ? palette.destructive : palette["muted-foreground"],
+        ],
+        [
+          yz,
+          "yz",
+          axis === "x" ? palette.destructive : palette["muted-foreground"],
+        ],
+      ]
+      for (const [mask, plane, color] of plates) {
+        const active =
+          (plane === "xy" && axis === "z") ||
+          (plane === "xz" && axis === "y") ||
+          (plane === "yz" && axis === "x")
+        if (!showShadows.on && !active) continue
+
+        const tiles: number[] = []
+        for (let a = 0; a < SHADOW; a++) {
+          for (let bIndex = 0; bIndex < SHADOW; bIndex++) {
+            if (!mask[bIndex * SHADOW + a]) continue
+            tiles.push(a, bIndex)
+          }
+        }
+        if (tiles.length === 0) continue
+
+        const first = plane === "yz" ? box[1] : box[0]
+        const second = plane === "xy" ? box[1] : box[2]
+        const wa = (first[1] - first[0]) / SHADOW
+        const wb = (second[1] - second[0]) / SHADOW
+        const plate = new three.InstancedMesh(
+          new three.PlaneGeometry(wa, wb),
+          new three.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: active ? 0.55 : 0.22,
+            side: three.DoubleSide,
+          }),
+          tiles.length / 2,
+        )
+        const lift = 0.008
+        for (let index = 0; index < tiles.length / 2; index++) {
+          const a = first[0] + (tiles[index * 2] + 0.5) * wa
+          const bValue = second[0] + (tiles[index * 2 + 1] + 0.5) * wb
+          dummy.scale.setScalar(1)
+          if (plane === "xy") {
+            dummy.rotation.set(0, 0, 0)
+            dummy.position.set(a, bValue, box[2][0] - lift)
+          } else if (plane === "xz") {
+            dummy.rotation.set(Math.PI / 2, 0, 0)
+            dummy.position.set(a, box[1][0] - lift, bValue)
+          } else {
+            dummy.rotation.set(Math.PI / 2, 0, Math.PI / 2)
+            dummy.position.set(box[0][0] - lift, a, bValue)
+          }
+          dummy.updateMatrix()
+          plate.setMatrixAt(index, dummy.matrix)
+        }
+        plate.instanceMatrix.needsUpdate = true
+        scene.add(plate)
+      }
+
+      const description = limits[axis]
+      setReadout("outer", description.outer)
+      setReadout("inner", description.inner)
+      setReadout("volume", fmt(volume, 4))
+      setReadout("exact", fmt(exact, 4))
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -0.85, elevation: 0.4, distance: 4 },
+      distanceRange: [2, 12],
+      build: buildScene,
+      update(handle, elapsed) {
+        if (spin.on) handle.orbit.azimuth = -0.85 - elapsed * 0.3
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        if (spin.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the limits and the volume still describe the setup.
+      })
+
+    const disposeControls = disposeAll([solid, order, showShadows, spin])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

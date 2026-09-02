@@ -1,0 +1,34 @@
+---
+interface Props {
+  name: string
+  label: string
+  value: string
+  placeholder?: string
+}
+
+const { name, label, value, placeholder } = Astro.props
+const id = `fun-${name}`
+const errorId = `${id}-error`
+---
+
+<div class="fun-control">
+  <label class="fun-control-label" for={id}>{label}</label>
+  <input
+    class="fun-formula-input"
+    type="text"
+    id={id}
+    data-fun-formula={name}
+    value={value}
+    placeholder={placeholder}
+    spellcheck="false"
+    autocapitalize="off"
+    autocomplete="off"
+    aria-describedby={errorId}
+  >
+  <span
+    class="fun-formula-error"
+    id={errorId}
+    data-fun-formula-error={name}
+    role="status"
+  ></span>
+</div>

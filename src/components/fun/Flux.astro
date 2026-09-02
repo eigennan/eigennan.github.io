@@ -1,0 +1,434 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const fields = [
+  { value: "up", label: "Uniform  (0, 0, 1)" },
+  { value: "radial", label: "Outward  (x, y, z)" },
+  { value: "squeeze", label: "Squeeze  (x, y, −2z)" },
+  { value: "swirl", label: "Swirl  (−y, x, 0)" },
+  { value: "shear", label: "Shear  (z, 0, 0)" },
+]
+
+const surfaces = [
+  { value: "dome", label: "Dome" },
+  { value: "disk", label: "Flat disk" },
+  { value: "square", label: "Square sheet" },
+  { value: "funnel", label: "Funnel" },
+]
+---
+
+<FunStage
+  slug="flux"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A vector field in space with a tiltable surface placed in it, each patch of the surface tinted by whether the field is flowing in or out through it."
+>
+  <Fragment slot="controls">
+    <FunSelect name="field" label="Field" options={fields} />
+    <FunSelect name="surface" label="Surface" options={surfaces} />
+    <FunSlider
+      name="tilt"
+      label="Tilt"
+      min={-90}
+      max={90}
+      step={1}
+      value={0}
+      display="0°"
+    />
+    <FunSlider
+      name="turn"
+      label="Turn"
+      min={0}
+      max={359}
+      step={1}
+      value={0}
+      display="0°"
+    />
+    <FunSlider
+      name="height"
+      label="Height"
+      min={-120}
+      max={120}
+      step={1}
+      value={0}
+      display="0.00"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="flip" label="Flip orientation" />
+      <FunToggle name="arrows" label="Field arrows" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "flux", label: "flux through the surface" },
+        { name: "area", label: "surface area" },
+        { name: "avg", label: "average F · n" },
+      ]}
+    />
+    <p class="fun-note">
+      Warm patches are places the field leaves through; cool patches are places
+      it enters through. Flux is their tug-of-war.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Hold a hoop up in a river. <strong>Flux</strong> is how much water per
+      second actually goes through it. Turn the hoop edge-on to the current and
+      the answer drops to nothing — not because the river stopped, but because
+      nothing is crossing the hoop any more.
+    </p>
+    <p>
+      So flux can't just be about how strong the field is. At each little patch
+      of surface only the component of <strong>F</strong> along the
+      <strong>normal</strong>
+      counts, which is the dot product
+      <strong>F · n</strong>; the part sliding along the surface contributes
+      nothing. Add that up patch by patch, weighting each by its area, and you
+      have <strong>∬ F · n dS</strong>.
+    </p>
+    <p>
+      Which brings up the awkward question the button in the corner asks. A
+      surface has <em>two</em> sides, and the normal could point either way.
+      Nothing in the surface itself decides which — you have to choose, and
+      until you do, "the flux through this surface" is not a well-defined
+      number. Flip the choice and every patch changes colour and the total
+      changes sign.
+    </p>
+    <p>
+      That's not a flaw, it's the point. For a closed surface everyone agrees to
+      point the normal outward, which is what makes "flux out of this region"
+      unambiguous — and that convention is what the divergence theorem is
+      written in.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { type Arrow3D, arrowField } from "@/lib/fun/arrows3d"
+  import {
+    type Domain,
+    type Field3,
+    type Surface,
+    type Vec3,
+    boundsOf,
+    fluxThrough,
+    norm3,
+    parametricMesh,
+    sampleSurface,
+    scale3,
+  } from "@/lib/fun/surface3d"
+
+  const FIELDS: Record<string, Field3> = {
+    radial: (x, y, z) => [x, y, z],
+    up: () => [0, 0, 1],
+    swirl: (x, y) => [-y, x, 0],
+    shear: (_x, _y, z) => [z, 0, 0],
+    squeeze: (x, y, z) => [x, y, -2 * z],
+  }
+
+  /**
+   * Base patches, before the tilt / turn / height placement is applied.
+   *
+   * `u` runs radially (or from the pole) and `v` around, deliberately in that
+   * order: swapping the two parameters negates r_u x r_v, and this ordering is
+   * the one whose induced normal points up and out. Getting it backwards is
+   * mathematically fine but opens the page on a negative answer for an
+   * obviously upward flow, which teaches the wrong thing first.
+   */
+  const SHAPES: Record<string, { r: Surface; domain: Domain }> = {
+    dome: {
+      r: (u, v) => [
+        Math.sin(u) * Math.cos(v),
+        Math.sin(u) * Math.sin(v),
+        Math.cos(u),
+      ],
+      domain: { uMin: 0, uMax: Math.PI / 2, vMin: 0, vMax: Math.PI * 2 },
+    },
+    disk: {
+      r: (u, v) => [u * Math.cos(v), u * Math.sin(v), 0],
+      domain: { uMin: 0, uMax: 1.3, vMin: 0, vMax: Math.PI * 2 },
+    },
+    square: {
+      r: (u, v) => [u, v, 0],
+      domain: { uMin: -1.2, uMax: 1.2, vMin: -1.2, vMax: 1.2 },
+    },
+    funnel: {
+      r: (u, v) => [u * Math.cos(v), u * Math.sin(v), 1.1 - 0.75 * u * u],
+      domain: { uMin: 0, uMax: 1.35, vMin: 0, vMax: Math.PI * 2 },
+    },
+  }
+
+  const MESH_U = 44
+  const MESH_V = 90
+  const ARROW_STEP = 0.92
+  const ARROW_REACH = 1.85
+
+  registerFunApp('[data-fun-app="flux"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const field = bindSelect(root, "field", refresh)
+    const shape = bindSelect(root, "surface", refresh)
+    const tilt = bindSlider(root, "tilt", {
+      format: (v) => `${v.toFixed(0)}°`,
+      onInput: refresh,
+    })
+    const turn = bindSlider(root, "turn", {
+      format: (v) => `${v.toFixed(0)}°`,
+      onInput: refresh,
+    })
+    const height = bindSlider(root, "height", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: refresh,
+    })
+    const flip = bindToggle(root, "flip", refresh)
+    const showArrows = bindToggle(root, "arrows", refresh)
+
+    const currentField = () => FIELDS[field.value] ?? FIELDS.up
+
+    /**
+     * The chosen patch, rotated by the two angle sliders and lifted. Composing
+     * the placement into the parametrization means the normals, the areas and
+     * the flux all come from one definition — nothing has to be transformed
+     * twice and kept in step.
+     */
+    function placedSurface(): { r: Surface; domain: Domain } {
+      const base = SHAPES[shape.value] ?? SHAPES.dome
+      const a = (tilt.value * Math.PI) / 180
+      const b = (turn.value * Math.PI) / 180
+      const lift = height.value / 100
+      return {
+        domain: base.domain,
+        r: (u, v) => {
+          const [x, y, z] = base.r(u, v)
+          // Tilt about the y-axis, then turn about z.
+          const x1 = x * Math.cos(a) + z * Math.sin(a)
+          const z1 = -x * Math.sin(a) + z * Math.cos(a)
+          return [
+            x1 * Math.cos(b) - y * Math.sin(b),
+            x1 * Math.sin(b) + y * Math.cos(b),
+            z1 + lift,
+          ]
+        },
+      }
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const { r, domain } = placedSurface()
+      const F = currentField()
+
+      addLights(three, scene, 0.95)
+      scene.add(makeAxes(three, 2.4, palette["muted-foreground"], 2))
+
+      const { geometry, faces } = parametricMesh(
+        three,
+        r,
+        domain,
+        MESH_U,
+        MESH_V,
+      )
+      const result = fluxThrough(F, faces, flip.on)
+
+      // Tint each quad by the sign and size of F·n there: warm for outflow,
+      // cool for inflow. Two triangles per quad, three vertices each.
+      const colors = new Float32Array(
+        geometry.getAttribute("position").count * 3,
+      )
+      const outward = new three.Color(palette.primary)
+      const inward = new three.Color(palette.accent)
+      const neutral = new three.Color(palette.background)
+      const index = geometry.getIndex()
+
+      if (index) {
+        for (let q = 0; q < faces.length; q++) {
+          const strength = clamp(
+            Math.abs(result.perFace[q]) / result.peak,
+            0,
+            1,
+          )
+          const tone = neutral
+            .clone()
+            .lerp(
+              result.perFace[q] >= 0 ? outward : inward,
+              0.25 + 0.75 * strength,
+            )
+          for (let k = 0; k < 6; k++) {
+            const vertex = index.getX(q * 6 + k)
+            colors[vertex * 3] = tone.r
+            colors[vertex * 3 + 1] = tone.g
+            colors[vertex * 3 + 2] = tone.b
+          }
+        }
+      }
+      geometry.setAttribute("color", new three.BufferAttribute(colors, 3))
+
+      scene.add(
+        new three.Mesh(
+          geometry,
+          new three.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.85,
+            metalness: 0,
+            side: three.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 2,
+            polygonOffsetUnits: 2,
+          }),
+        ),
+      )
+
+      // Normals, sampled sparsely, so the chosen orientation is visible. The
+      // stride has to be two-dimensional: a flat stride over a row-major face
+      // list walks along one row and bunches the spines into a single arc.
+      const quills: Arrow3D[] = []
+      const strideU = Math.max(1, Math.round(MESH_U / 5))
+      const strideV = Math.max(1, Math.round(MESH_V / 10))
+      for (let j = 0; j < MESH_V; j += strideV) {
+        for (let i = 0; i < MESH_U; i += strideU) {
+          // Skip the innermost ring: on a polar grid every angular sample
+          // converges there and the spines pile into a knot.
+          if (i / MESH_U < 0.16) continue
+          const face = faces[j * MESH_U + i]
+          if (!face) continue
+          quills.push({
+            origin: face.center,
+            direction: flip.on ? scale3(face.normal, -1) : face.normal,
+            length: 0.24,
+          })
+        }
+      }
+      scene.add(
+        arrowField(three, quills, {
+          color: palette.foreground,
+          thickness: 0.04,
+          head: 0.34,
+          opacity: 0.9,
+        }),
+      )
+
+      if (showArrows.on) addFieldArrows(handle, F)
+
+      setReadout("flux", fmt(result.total, 3))
+      const area = faces.reduce((sum, face) => sum + face.area, 0)
+      setReadout("area", fmt(area, 3))
+      setReadout("avg", area > 0 ? fmt(result.total / area, 3) : "—")
+    }
+
+    /** A sparse lattice of field arrows, skipped where the field is negligible. */
+    function addFieldArrows(handle: Scene3DHandle, F: Field3) {
+      const { three, scene, palette } = handle
+      const samples: { at: Vec3; value: Vec3 }[] = []
+      let peak = 1e-9
+
+      for (let x = -ARROW_REACH; x <= ARROW_REACH; x += ARROW_STEP) {
+        for (let y = -ARROW_REACH; y <= ARROW_REACH; y += ARROW_STEP) {
+          for (let z = -ARROW_REACH; z <= ARROW_REACH; z += ARROW_STEP) {
+            // Trim the lattice to a ball: the box corners are far from the
+            // surface and only crowd the picture.
+            if (norm3([x, y, z]) > ARROW_REACH * 1.05) continue
+            const value = F(x, y, z)
+            const magnitude = norm3(value)
+            if (!Number.isFinite(magnitude)) continue
+            peak = Math.max(peak, magnitude)
+            samples.push({ at: [x, y, z], value })
+          }
+        }
+      }
+
+      const arrows: Arrow3D[] = []
+      for (const { at, value } of samples) {
+        const magnitude = norm3(value)
+        if (magnitude < peak * 0.04) continue
+        arrows.push({
+          origin: at,
+          direction: value,
+          length: Math.min(magnitude / peak, 1) * ARROW_STEP * 0.46,
+        })
+      }
+
+      scene.add(
+        arrowField(three, arrows, {
+          color: palette["muted-foreground"],
+          anchor: "center",
+          thickness: 0.03,
+          head: 0.3,
+          opacity: 0.8,
+        }),
+      )
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.1, elevation: 0.42, distance: 8 },
+      distanceRange: [3.5, 24],
+      build(handle) {
+        const { r, domain } = placedSurface()
+        const { radius } = boundsOf(sampleSurface(r, domain, 12))
+        handle.orbit.distance = clamp(radius * 3.4 + 1.4, 3.5, 24)
+        buildScene(handle)
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the readouts still update from the same integration.
+      })
+
+    const disposeControls = disposeAll([
+      field,
+      shape,
+      tilt,
+      turn,
+      height,
+      flip,
+      showArrows,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

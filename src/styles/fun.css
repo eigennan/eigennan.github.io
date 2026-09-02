@@ -1,0 +1,483 @@
+/*
+ * Shared chrome for the /fun visualizations. Global (not component-scoped) so
+ * the stage, its control rail, and the controls the apps slot into it can share
+ * one vocabulary — the same reason card.css and chip-filter.css are opt-in
+ * global sheets rather than scoped styles.
+ */
+
+/*
+ * The stage is an ordinary block at the site's own measure — no breakout. Every
+ * /fun page therefore shares its left and right edges with /research and /blog,
+ * which is the whole visual identity of the site.
+ *
+ * It declares an inline-size container so everything inside can size itself
+ * against the space the canvas actually has (~650px at any viewport above
+ * 44rem) rather than against the viewport, which stopped describing it the
+ * moment the breakout went away.
+ */
+.fun-stage {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+
+.fun-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-s);
+  align-items: start;
+}
+
+.fun-viewport {
+  position: relative;
+  aspect-ratio: var(--fun-ratio, 3 / 2);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--muted) 26%, var(--background));
+}
+
+@container (width < 34rem) {
+  .fun-viewport {
+    aspect-ratio: var(--fun-ratio-narrow, 1 / 1);
+  }
+}
+
+/* Two viewports for the toys that want a 3D view and a flat one at once. */
+.fun-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xs);
+  min-inline-size: 0;
+}
+
+@container (width < 34rem) {
+  .fun-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Taller than wide, so a half-width panel still has room to draw in. */
+.fun-split .fun-viewport {
+  aspect-ratio: var(--fun-split-ratio, 4 / 5);
+}
+
+/* The flat panel leads where it is the input and the surface is the result. */
+.fun-split[data-flat-first] .fun-viewport-flat {
+  order: -1;
+}
+
+.fun-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  /* Without this the browser scrolls the page instead of reporting the drag. */
+  touch-action: none;
+}
+
+.fun-canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------- controls ---------- */
+
+/*
+ * A band below the canvas rather than a rail beside it: at the site measure a
+ * side rail would leave the canvas around 370px, which is unusable. Laid out
+ * as an auto-fitting grid so it is three columns on a laptop and one on a
+ * phone, with no breakpoint of its own.
+ */
+.fun-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-xs);
+  align-items: start;
+  padding: var(--space-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--muted) 20%, transparent);
+}
+
+/* Full-width items: these read as one row, not as grid cells. */
+.fun-controls > .fun-toggles,
+.fun-controls > .fun-note,
+.fun-controls > .fun-readout,
+.fun-controls > .fun-legend {
+  grid-column: 1 / -1;
+}
+
+.fun-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.fun-control-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+}
+
+.fun-control-label {
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-medium);
+}
+
+.fun-control-value {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.fun-note {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+  line-height: 1.45;
+}
+
+/* ---------- range ---------- */
+
+.fun-range {
+  inline-size: 100%;
+  block-size: 1.5rem;
+  margin: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.fun-range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-full);
+}
+
+@media (pointer: coarse) {
+  .fun-range {
+    block-size: 2rem;
+  }
+}
+
+/* ---------- select ---------- */
+
+.fun-select {
+  inline-size: 100%;
+  min-block-size: var(--control-size);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+
+.fun-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------- toggles ---------- */
+
+.fun-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.fun-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  min-block-size: var(--control-size-compact, 2rem);
+  padding-inline: var(--space-2xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-ease),
+    background-color var(--motion-duration-fast) var(--motion-ease),
+    color var(--motion-duration-fast) var(--motion-ease);
+}
+
+.fun-toggle[aria-pressed="true"] {
+  border-color: var(--interactive-border);
+  background: var(--interactive-background);
+  color: var(--foreground);
+}
+
+.fun-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fun-toggle:hover {
+    border-color: var(--accent);
+    color: var(--foreground);
+  }
+}
+
+@media (pointer: coarse) {
+  .fun-toggle {
+    min-block-size: var(--control-size);
+  }
+}
+
+/* ---------- formula input ---------- */
+
+.fun-formula-input {
+  inline-size: 100%;
+  min-block-size: var(--control-size);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+
+.fun-formula-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.fun-formula-input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+.fun-formula-error {
+  min-block-size: 1.1em;
+  color: var(--destructive);
+  font-size: var(--step--1);
+}
+
+.fun-formula-error:empty {
+  min-block-size: 0;
+}
+
+/* ---------- legend ---------- */
+
+.fun-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fun-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+}
+
+.fun-legend-swatch {
+  flex-shrink: 0;
+  inline-size: 0.85rem;
+  block-size: 0.25rem;
+  border-radius: var(--radius-full);
+}
+
+.fun-legend-swatch[data-tone="destructive"] {
+  background: var(--destructive);
+}
+
+.fun-legend-swatch[data-tone="accent"] {
+  background: var(--accent);
+}
+
+.fun-legend-swatch[data-tone="primary"] {
+  background: var(--primary);
+}
+
+/* ---------- live readout ---------- */
+
+.fun-readout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding-block-start: var(--space-3xs);
+  border-block-start: 1px solid var(--border);
+}
+
+.fun-readout-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+}
+
+.fun-readout dt {
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+}
+
+.fun-readout dd {
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- footer ---------- */
+
+.fun-hint {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+}
+
+.fun-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  color: var(--prose-foreground, var(--foreground));
+}
+
+.fun-notes p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.fun-notes h2 {
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fun-notes strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ---------- gallery ---------- */
+
+.fun-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-l);
+}
+
+.fun-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.fun-filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.fun-filter-label {
+  display: flex;
+  align-items: center;
+  min-inline-size: 2.75rem;
+  min-block-size: calc(var(--control-size-compact) + 2 * var(--space-3xs));
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+}
+
+.fun-filters .chip-filter-bar {
+  gap: var(--space-3xs);
+}
+
+.chip-active-filter[hidden] {
+  display: none;
+}
+
+.fun-empty {
+  padding: var(--space-l);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--muted) 34%, transparent);
+  text-align: center;
+}
+
+.fun-empty[hidden] {
+  display: none;
+}
+
+.fun-empty h2,
+.fun-empty p {
+  margin: 0;
+}
+
+.fun-empty h2 {
+  font-size: var(--step-1);
+}
+
+.fun-empty p {
+  margin-block-start: var(--space-3xs);
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+}
+
+@media (width < 40rem) {
+  .fun-filter-row {
+    flex-direction: column;
+    gap: var(--space-3xs);
+  }
+
+  .fun-filter-label {
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+}
+
+.fun-group-head {
+  margin-block-end: var(--space-xs);
+}
+
+.fun-group-head h2 {
+  margin: 0 0 var(--space-3xs);
+  font-size: var(--step-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fun-group-head p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+
+.fun-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.fun-card-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.fun-card-kind {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  /* "2D + 3D" is one label, not three words to break across lines. */
+  white-space: nowrap;
+}

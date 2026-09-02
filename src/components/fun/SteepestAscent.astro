@@ -1,0 +1,507 @@
+---
+import FunFormula from "./FunFormula.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const presets = [
+  { value: "x^2 + 2y^2", label: "Bowl" },
+  { value: "x^2 - y^2", label: "Saddle" },
+  {
+    value: "3exp(-(x-1)^2-(y-1)^2) + 2exp(-(x+1.2)^2-(y+0.9)^2)",
+    label: "Two hills",
+  },
+  { value: "sin(x)*cos(y)", label: "Ripples" },
+  { value: "x^3 - 3x y^2", label: "Monkey saddle" },
+]
+---
+
+<FunStage
+  slug="steepest-ascent"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A contour map with a movable point, its gradient arrow, a direction needle, and a dial showing the directional derivative in every direction."
+>
+  <Fragment slot="controls">
+    <FunSelect name="preset" label="Landscape" options={presets} />
+    <FunFormula name="f" label="f(x, y)" value="x^2 + 2y^2" />
+    <FunSlider
+      name="theta"
+      label="Direction"
+      min={0}
+      max={360}
+      step={1}
+      value={35}
+      display="35°"
+    />
+    <FunSlider
+      name="px"
+      label="Point x"
+      min={-3}
+      max={3}
+      step={0.01}
+      value={1.1}
+      display="1.10"
+    />
+    <FunSlider
+      name="py"
+      label="Point y"
+      min={-3}
+      max={3}
+      step={0.01}
+      value={0.7}
+      display="0.70"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="level" label="Level curve" pressed />
+      <FunToggle name="shade" label="Shading" pressed />
+    </div>
+    <p class="fun-note">
+      The needle is a unit vector. Turning it changes only the direction you
+      step, never how far.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      The <strong>directional derivative</strong> asks a simple question: if I
+      take one small step in direction <strong>u</strong>, how fast does the
+      height change? Turn the needle and read the answer off the dial.
+    </p>
+    <p>
+      The dial is the whole story. Plot that rate in every direction at once and
+      the answer traces a <strong>circle</strong> — because the rate is a dot
+      product, and a dot product with a fixed vector is a cosine. The circle's
+      far point is the direction of steepest ascent; the two directions where
+      the circle passes through the centre are the ones where nothing changes at
+      all, and those are exactly the directions along the level curve.
+    </p>
+    <p>
+      So the gradient is not just <em>a</em> useful direction. It is the
+      diameter of that circle, it always points perpendicular to the level
+      curve, and its length is the steepest rate available. Everywhere except a
+      flat spot, where the circle collapses to a point and every direction is
+      equally pointless.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindFormula,
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    gridToImage,
+    levelsFor,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import { clamp, fmt, gradient, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { type Palette, alpha, mix } from "@/lib/fun/theme"
+
+  const HALF_Y = 3
+  const RESOLUTION = 170
+  const LEVEL_COUNT = 11
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="steepest-ascent"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+
+    // Assigned once mountFunApp runs; every control callback goes through
+    // `redraw` so the ones that fire during construction are harmless.
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let point = { x: 1.1, y: 0.7 }
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let shading: HTMLCanvasElement | null = null
+    let shadingKey = ""
+    // The sampled window is as wide as the canvas allows, so the map fills its
+    // panel instead of sitting as a square in the middle of it. Rounding the
+    // aspect keeps a one-pixel resize from re-sampling the whole grid.
+    let gridAspect = 0
+
+    const formula = bindFormula(
+      root,
+      "f",
+      ["x", "y"],
+      (x, y) => x * x + 2 * y * y,
+      () => {
+        grid = null
+        gridAspect = 0
+        redraw()
+      },
+    )
+
+    const preset = bindSelect(root, "preset", (value) => {
+      const input = root.querySelector<HTMLInputElement>(
+        '[data-fun-formula="f"]',
+      )
+      if (!input) return
+      input.value = value
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    const theta = bindSlider(root, "theta", {
+      format: (v) => `${v.toFixed(0)}\u00b0`,
+      onInput: redraw,
+    })
+
+    const px = bindSlider(root, "px", {
+      format: (v) => v.toFixed(2),
+      onInput: (v) => {
+        point = { ...point, x: v }
+        redraw()
+      },
+    })
+
+    const py = bindSlider(root, "py", {
+      format: (v) => v.toFixed(2),
+      onInput: (v) => {
+        point = { ...point, y: v }
+        redraw()
+      },
+    })
+
+    const showLevel = bindToggle(root, "level", redraw)
+    const showShade = bindToggle(root, "shade", redraw)
+
+    function needleTip() {
+      const angle = (theta.value * Math.PI) / 180
+      const reach = HALF_Y * 0.26
+      return {
+        x: point.x + Math.cos(angle) * reach,
+        y: point.y + Math.sin(angle) * reach,
+      }
+    }
+
+    let dragging: "point" | "needle" = "point"
+
+    function applyDrag(sx: number, sy: number) {
+      const wx = plot.wx(sx)
+      const wy = plot.wy(sy)
+      if (dragging === "needle") {
+        const degrees =
+          ((Math.atan2(wy - point.y, wx - point.x) * 180) / Math.PI + 360) % 360
+        theta.set(Math.round(degrees))
+      } else {
+        point = {
+          x: clamp(wx, -HALF_Y, HALF_Y),
+          y: clamp(wy, -HALF_Y, HALF_Y),
+        }
+        px.set(Number(point.x.toFixed(2)))
+        py.set(Number(point.y.toFixed(2)))
+      }
+      redraw()
+    }
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        const tip = needleTip()
+        const toTip = Math.hypot(
+          info.x - plot.sx(tip.x),
+          info.y - plot.sy(tip.y),
+        )
+        const toPoint = Math.hypot(
+          info.x - plot.sx(point.x),
+          info.y - plot.sy(point.y),
+        )
+        dragging = toTip < 28 && toTip < toPoint ? "needle" : "point"
+        applyDrag(info.x, info.y)
+      },
+      onMove: (info) => applyDrag(info.x, info.y),
+    })
+
+    function drawReadout(
+      palette: Palette,
+      values: {
+        height: number
+        gx: number
+        gy: number
+        norm: number
+        du: number
+      },
+    ) {
+      const lines = [
+        `f = ${fmt(values.height)}`,
+        `grad f = (${fmt(values.gx)}, ${fmt(values.gy)})`,
+        `|grad f| = ${fmt(values.norm)}`,
+        `D_u f = ${fmt(values.du)}`,
+      ]
+      const lineHeight = 18
+      const panelHeight = lines.length * lineHeight + 14
+      // Pinned to the bottom, clear of the sticky site header.
+      const panelTop = plot.height - panelHeight - 14
+      plot.panel(14, panelTop, 178, panelHeight, palette)
+      lines.forEach((line, index) => {
+        const highlight = index === 3
+        plot.screenText(line, 24, panelTop + 14 + index * lineHeight, {
+          color: highlight ? palette.destructive : palette.foreground,
+          size: 12,
+          align: "left",
+          mono: true,
+          weight: highlight ? "600" : "450",
+        })
+      })
+    }
+
+    /**
+     * Plot the directional derivative against every direction at once. Because
+     * D_u f = |grad f| cos(phi - phi_g), the locus is a circle of diameter
+     * |grad f| lying along the gradient. The far point is steepest ascent; the
+     * two places the circle meets the centre are the level-curve directions.
+     */
+    function drawDial(
+      ctx: CanvasRenderingContext2D,
+      palette: Palette,
+      layout: { cx: number; cy: number; radius: number },
+      values: {
+        gx: number
+        gy: number
+        norm: number
+        angle: number
+        du: number
+      },
+    ) {
+      const { cx, cy, radius } = layout
+
+      plot.panel(
+        cx - radius - 14,
+        cy - radius - 14,
+        radius * 2 + 28,
+        radius * 2 + 46,
+        palette,
+      )
+
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.strokeStyle = alpha(palette.foreground, 0.22)
+      ctx.lineWidth = 1
+      ctx.setLineDash([3, 4])
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      ctx.beginPath()
+      ctx.moveTo(cx - radius, cy)
+      ctx.lineTo(cx + radius, cy)
+      ctx.moveTo(cx, cy - radius)
+      ctx.lineTo(cx, cy + radius)
+      ctx.strokeStyle = alpha(palette.foreground, 0.16)
+      ctx.stroke()
+
+      if (values.norm > 1e-9) {
+        // Screen y grows downward, so every angle flips sign on the way out.
+        const gAngle = Math.atan2(values.gy, values.gx)
+        ctx.beginPath()
+        ctx.arc(
+          cx + Math.cos(gAngle) * (radius / 2),
+          cy - Math.sin(gAngle) * (radius / 2),
+          radius / 2,
+          0,
+          Math.PI * 2,
+        )
+        ctx.strokeStyle = palette.accent
+        ctx.lineWidth = 2
+        ctx.stroke()
+
+        const reach = (values.du / values.norm) * radius
+        const tipX = cx + Math.cos(values.angle) * reach
+        const tipY = cy - Math.sin(values.angle) * reach
+        ctx.beginPath()
+        ctx.moveTo(cx, cy)
+        ctx.lineTo(tipX, tipY)
+        ctx.strokeStyle = palette.destructive
+        ctx.lineWidth = 3
+        ctx.lineCap = "round"
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.arc(tipX, tipY, 4.5, 0, Math.PI * 2)
+        ctx.fillStyle = palette.destructive
+        ctx.fill()
+      } else {
+        ctx.beginPath()
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2)
+        ctx.fillStyle = palette["muted-foreground"]
+        ctx.fill()
+      }
+
+      plot.screenText(
+        values.norm > 1e-9
+          ? "rate in every direction"
+          : "flat: every rate is zero",
+        cx,
+        cy + radius + 21,
+        { color: palette["muted-foreground"], size: 11 },
+      )
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const f = formula.fn as (x: number, y: number) => number
+
+        // Give the dial its own rail only when the canvas is wide enough to
+        // spare one; otherwise it overlays the map's bottom-right corner.
+        // The dial always overlays the map's bottom-right corner rather than
+        // claiming a rail, so the map gets the full canvas at every width and
+        // the layout reads the same on a phone as on a laptop.
+        const mapWidth = width
+        const aspect = Math.round((mapWidth / height) * 50) / 50
+        const bounds = {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        }
+        plot.fit(mapWidth, height, bounds)
+
+        let currentGrid = grid
+        if (!currentGrid || gridAspect !== aspect) {
+          gridAspect = aspect
+          currentGrid = sampleGrid(
+            f,
+            bounds,
+            Math.min(340, Math.round(RESOLUTION * aspect)),
+            RESOLUTION,
+          )
+          grid = currentGrid
+          levels = levelsFor(currentGrid, LEVEL_COUNT)
+          shading = null
+        }
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, mapWidth, height)
+        ctx.clip()
+
+        if (showShade.on) {
+          const key = `${palette.background}|${palette.primary}`
+          if (!shading || shadingKey !== key) {
+            shadingKey = key
+            const low = rgb(mix(palette.background, palette.accent, 0.32))
+            const high = rgb(mix(palette.background, palette.primary, 0.7))
+            shading = gridToImage(currentGrid, (t) => [
+              low[0] + (high[0] - low[0]) * t,
+              low[1] + (high[1] - low[1]) * t,
+              low[2] + (high[2] - low[2]) * t,
+            ])
+          }
+          ctx.imageSmoothingEnabled = true
+          ctx.drawImage(
+            shading,
+            plot.sx(bounds.xMin),
+            plot.sy(bounds.yMax),
+            (bounds.xMax - bounds.xMin) * plot.scale,
+            (bounds.yMax - bounds.yMin) * plot.scale,
+          )
+        }
+
+        plot.axes(alpha(palette.foreground, 0.28))
+
+        for (const level of levels) {
+          plot.segments(contourSegments(currentGrid, level), {
+            color: alpha(palette.foreground, 0.3),
+            width: 1,
+          })
+        }
+
+        const value = f(point.x, point.y)
+        if (showLevel.on && Number.isFinite(value)) {
+          plot.segments(contourSegments(currentGrid, value), {
+            color: palette.foreground,
+            width: 2.25,
+          })
+        }
+
+        const [gx, gy] = gradient(f, point.x, point.y)
+        const norm = hypot(gx, gy)
+        const angle = (theta.value * Math.PI) / 180
+        const du = gx * Math.cos(angle) + gy * Math.sin(angle)
+
+        // Drawn at a fixed readable length; the readout carries the magnitude.
+        if (norm > 1e-9) {
+          plot.arrow(
+            point.x,
+            point.y,
+            point.x + (gx / norm) * HALF_Y * 0.32,
+            point.y + (gy / norm) * HALF_Y * 0.32,
+            { color: palette.accent, width: 3.5 },
+          )
+        }
+
+        const tip = needleTip()
+        plot.arrow(point.x, point.y, tip.x, tip.y, {
+          color: palette.destructive,
+          width: 2.5,
+        })
+        plot.disc(tip.x, tip.y, 8, {
+          fill: palette.background,
+          stroke: palette.destructive,
+          width: 2.5,
+        })
+        plot.disc(point.x, point.y, 6, {
+          fill: palette.foreground,
+          stroke: palette.background,
+          width: 2,
+        })
+
+        ctx.restore()
+
+        drawReadout(palette, { height: value, gx, gy, norm, du })
+
+        const radius = Math.min(Math.min(width, height) * 0.17, 84)
+        drawDial(
+          ctx,
+          palette,
+          {
+            cx: width - radius - 28,
+            cy: height - radius - 38,
+            radius,
+          },
+          { gx, gy, norm, angle, du },
+        )
+      },
+    })
+
+    const disposeControls = disposeAll([
+      formula,
+      preset,
+      theta,
+      px,
+      py,
+      showLevel,
+      showShade,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

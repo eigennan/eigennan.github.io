@@ -1,0 +1,344 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+---
+
+<FunStage
+  slug="lines-and-planes"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A plane with its normal, a line crossing space, and a movable point joined to each by the perpendicular that realizes its distance."
+>
+  <Fragment slot="controls">
+    <FunSlider
+      name="px"
+      label="point x"
+      min={-200}
+      max={200}
+      step={1}
+      value={110}
+      display="1.10"
+    />
+    <FunSlider
+      name="py"
+      label="point y"
+      min={-200}
+      max={200}
+      step={1}
+      value={-80}
+      display="-0.80"
+    />
+    <FunSlider
+      name="pz"
+      label="point z"
+      min={-200}
+      max={200}
+      step={1}
+      value={130}
+      display="1.30"
+    />
+    <FunSlider
+      name="nx"
+      label="normal x"
+      min={-100}
+      max={100}
+      step={1}
+      value={30}
+      display="0.30"
+    />
+    <FunSlider
+      name="ny"
+      label="normal y"
+      min={-100}
+      max={100}
+      step={1}
+      value={40}
+      display="0.40"
+    />
+    <FunSlider
+      name="nz"
+      label="normal z"
+      min={-100}
+      max={100}
+      step={1}
+      value={90}
+      display="0.90"
+    />
+    <FunSlider
+      name="t"
+      label="travel along the line"
+      min={-150}
+      max={150}
+      step={1}
+      value={40}
+      display="0.40"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="line" label="Line" pressed />
+      <FunToggle name="plane" label="Plane" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "toPlane", label: "distance to the plane" },
+        { name: "toLine", label: "distance to the line" },
+        { name: "signed", label: "n · (P − Q), signed" },
+      ]}
+    />
+    <p class="fun-note">
+      Cross the plane and the signed number changes sign — that is how a plane
+      divides space into two sides.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A plane is easiest to describe not by the points in it but by the
+      direction perpendicular to it. Pick any point <strong>Q</strong> on the
+      plane and a <strong>normal n</strong>; then a point <strong>P</strong> is
+      on the plane exactly when <strong>n · (P − Q) = 0</strong>. That is the
+      dot product's perpendicularity test doing all the work.
+    </p>
+    <p>
+      Distance falls straight out of the same expression. The vector from Q to P
+      generally leans; only the part of it along <strong>n</strong> takes you
+      away from the plane, and that part is the projection. So the distance is
+      <strong>|n · (P − Q)| / |n|</strong>
+      — the shadow of the offset on the normal. The drawn perpendicular is that
+      shadow, made visible.
+    </p>
+    <p>
+      The signed version, before the absolute value, is worth keeping. It is
+      positive on the side the normal points to and negative on the other, so
+      the plane cleanly divides space in two. Slide the point through and watch
+      it flip.
+    </p>
+    <p>
+      For the line the story is the mirror image. There you want the piece of
+      the offset that is <em>perpendicular</em> to the direction rather than
+      parallel to it — so you subtract off the projection instead of keeping it,
+      and what is left over is the distance.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { arrowField } from "@/lib/fun/arrows3d"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { bindSlider, bindToggle, disposeAll } from "@/lib/fun/controls"
+  import { fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import {
+    type Vec3,
+    add3,
+    cross3,
+    dot3,
+    norm3,
+    scale3,
+    sub3,
+    unit3,
+  } from "@/lib/fun/surface3d"
+
+  /** A point the plane passes through, and the line's anchor and direction. */
+  const Q: Vec3 = [0, 0, 0]
+  const LINE_POINT: Vec3 = [-1.1, 0.9, -0.6]
+  const LINE_DIR: Vec3 = [1, 0.35, 0.8]
+
+  registerFunApp('[data-fun-app="lines-and-planes"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const sliders = ["px", "py", "pz", "nx", "ny", "nz", "t"].map((name) =>
+      bindSlider(root, name, { format: hundredths, onInput: refresh }),
+    )
+    const [px, py, pz, nx, ny, nz, tSlider] = sliders
+    const showLine = bindToggle(root, "line", refresh)
+    const showPlane = bindToggle(root, "plane", refresh)
+
+    const P = (): Vec3 => [px.value / 100, py.value / 100, pz.value / 100]
+    const N = (): Vec3 => [nx.value / 100, ny.value / 100, nz.value / 100]
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function segment(handle: Scene3DHandle, a: Vec3, b: Vec3, color: string) {
+      const { three } = handle
+      const geometry = new three.BufferGeometry()
+      geometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute([...a, ...b], 3),
+      )
+      return new three.Line(
+        geometry,
+        new three.LineBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.85,
+        }),
+      )
+    }
+
+    function dot(
+      handle: Scene3DHandle,
+      at: Vec3,
+      color: string,
+      radius = 0.07,
+    ) {
+      const { three } = handle
+      const mesh = new three.Mesh(
+        new three.SphereGeometry(radius, 18, 12),
+        new three.MeshStandardMaterial({ color, roughness: 0.5 }),
+      )
+      mesh.position.set(at[0], at[1], at[2])
+      return mesh
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const p = P()
+      const n = N()
+      const nLength = norm3(n)
+
+      addLights(three, scene, 0.9)
+      scene.add(makeAxes(three, 2, palette["muted-foreground"], 2))
+
+      if (showPlane.on && nLength > 1e-6) {
+        // Two directions spanning the plane, from any vector not along n.
+        const seed: Vec3 =
+          Math.abs(n[2]) < 0.9 * nLength ? [0, 0, 1] : [1, 0, 0]
+        const u = unit3(cross3(n, seed))
+        const v = unit3(cross3(n, u))
+        const half = 1.7
+        const corners = [
+          add3(add3(Q, scale3(u, -half)), scale3(v, -half)),
+          add3(add3(Q, scale3(u, half)), scale3(v, -half)),
+          add3(add3(Q, scale3(u, half)), scale3(v, half)),
+          add3(add3(Q, scale3(u, -half)), scale3(v, half)),
+        ]
+        const geometry = new three.BufferGeometry()
+        geometry.setAttribute(
+          "position",
+          new three.Float32BufferAttribute(
+            [
+              ...corners[0],
+              ...corners[1],
+              ...corners[2],
+              ...corners[0],
+              ...corners[2],
+              ...corners[3],
+            ],
+            3,
+          ),
+        )
+        geometry.computeVertexNormals()
+        scene.add(
+          new three.Mesh(
+            geometry,
+            new three.MeshStandardMaterial({
+              color: palette.accent,
+              roughness: 0.9,
+              transparent: true,
+              opacity: 0.3,
+              side: three.DoubleSide,
+            }),
+          ),
+        )
+
+        scene.add(
+          arrowField(three, [{ origin: Q, direction: n, length: 1.2 }], {
+            color: palette.primary,
+            thickness: 0.035,
+            head: 0.26,
+          }),
+        )
+      }
+
+      // Distance to the plane: the offset's shadow on the normal.
+      const offset = sub3(p, Q)
+      const signed = nLength > 1e-6 ? dot3(n, offset) / nLength : 0
+      const foot = nLength > 1e-6 ? sub3(p, scale3(unit3(n), signed)) : p
+      if (showPlane.on && nLength > 1e-6) {
+        scene.add(segment(handle, p, foot, palette.destructive))
+        scene.add(dot(handle, foot, palette.destructive, 0.05))
+      }
+
+      // Distance to the line: what is left after removing the parallel part.
+      const dir = unit3(LINE_DIR)
+      const along = dot3(sub3(p, LINE_POINT), dir)
+      const nearest = add3(LINE_POINT, scale3(dir, along))
+      if (showLine.on) {
+        scene.add(
+          segment(
+            handle,
+            add3(LINE_POINT, scale3(dir, -2.4)),
+            add3(LINE_POINT, scale3(dir, 2.8)),
+            palette.foreground,
+          ),
+        )
+        scene.add(segment(handle, p, nearest, palette.destructive))
+        scene.add(dot(handle, nearest, palette.destructive, 0.05))
+        // The point travelling along the line, so the parameter means something.
+        scene.add(
+          dot(
+            handle,
+            add3(LINE_POINT, scale3(dir, (tSlider.value / 100) * 2.2)),
+            palette.foreground,
+            0.06,
+          ),
+        )
+      }
+
+      scene.add(dot(handle, p, palette.destructive))
+
+      setReadout("toPlane", nLength > 1e-6 ? fmt(Math.abs(signed), 3) : "—")
+      setReadout("toLine", fmt(norm3(sub3(p, nearest)), 3))
+      setReadout("signed", nLength > 1e-6 ? fmt(dot3(n, offset), 3) : "—")
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.0, elevation: 0.4, distance: 6.4 },
+      distanceRange: [3, 18],
+      build: buildScene,
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the distances still compute and display.
+      })
+
+    const disposeControls = disposeAll([...sliders, showLine, showPlane])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

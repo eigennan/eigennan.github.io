@@ -1,0 +1,277 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const surfaces = [
+  { value: "paraboloid", label: "x² + y²   over the unit square" },
+  { value: "product", label: "x y   over the unit square" },
+  { value: "dome", label: "A dome" },
+  { value: "ripple", label: "sin(πx) sin(πy)" },
+]
+
+const rules = [
+  { value: "midpoint", label: "Midpoint of each cell" },
+  { value: "corner", label: "Lower-left corner" },
+  { value: "upper", label: "Upper-right corner" },
+]
+---
+
+<FunStage
+  slug="riemann-sums"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A surface over a square with a grid of rectangular columns rising to meet it, and the total of their volumes compared against the exact integral."
+>
+  <Fragment slot="controls">
+    <FunSelect name="surface" label="Surface" options={surfaces} />
+    <FunSelect name="rule" label="Sample point" options={rules} />
+    <FunSlider
+      name="n"
+      label="Boxes per side"
+      min={1}
+      max={44}
+      step={1}
+      value={8}
+      display="8"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="sheet" label="The surface" pressed />
+      <FunToggle name="grow" label="Add boxes" />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "boxes", label: "boxes" },
+        { name: "sum", label: "total volume of the boxes" },
+        { name: "exact", label: "exact integral" },
+        { name: "error", label: "error" },
+      ]}
+    />
+    <p class="fun-note">
+      The midpoint rule is far better than either corner, and for a reason worth
+      thinking about.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      The double integral is defined as a limit of exactly this picture. Chop
+      the region into little rectangles, pick a point in each, build a column of
+      that height, and add up the volumes. Then let the rectangles shrink.
+      Everything else — iterated integrals, changing the order, Fubini's theorem
+      — is machinery for computing this number without ever building the boxes.
+    </p>
+    <p>
+      Which sample point you pick inside each cell doesn't matter in the limit;
+      that's part of what it means for the integral to exist. But it matters a
+      great deal at any finite <em>N</em>. Sampling the lower-left corner
+      systematically undershoots a rising surface and the upper-right
+      systematically overshoots, so both errors shrink only as fast as 1/N.
+    </p>
+    <p>
+      The <strong>midpoint</strong> rule does much better — its error falls like
+      1/N² — because the error it makes on the low side of each cell very nearly
+      cancels the error on the high side. It's the same reason the midpoint rule
+      beats left endpoints in one variable, and it's why nobody actually
+      computes integrals with corners.
+    </p>
+    <p>
+      Watch the boxes as N grows and the staircase becomes a surface. That
+      transition is the whole content of the definition.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { type Scalar2, clamp, fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import { parametricMesh } from "@/lib/fun/surface3d"
+
+  interface Job {
+    f: Scalar2
+    /** The integral over the unit square, in closed form. */
+    exact: number
+  }
+
+  const JOBS: Record<string, Job> = {
+    paraboloid: { f: (x, y) => x * x + y * y, exact: 2 / 3 },
+    product: { f: (x, y) => x * y, exact: 0.25 },
+    dome: {
+      f: (x, y) => 1.4 - (x - 0.5) ** 2 - (y - 0.5) ** 2,
+      exact: 1.4 - 1 / 6,
+    },
+    ripple: {
+      f: (x, y) => 0.9 * Math.sin(Math.PI * x) * Math.sin(Math.PI * y),
+      exact: (0.9 * 4) / (Math.PI * Math.PI),
+    },
+  }
+
+  const SAMPLE: Record<string, number> = {
+    midpoint: 0.5,
+    corner: 0,
+    upper: 1,
+  }
+
+  registerFunApp('[data-fun-app="riemann-sums"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+    let lastElapsed = 0
+
+    const surface = bindSelect(root, "surface", refresh)
+    const rule = bindSelect(root, "rule", refresh)
+    const n = bindSlider(root, "n", {
+      format: (v) => String(v),
+      onInput: refresh,
+    })
+    const showSheet = bindToggle(root, "sheet", refresh)
+    const grow = bindToggle(root, "grow", (on) => {
+      stage?.setAnimating(on)
+      refresh()
+    })
+
+    const current = () => JOBS[surface.value] ?? JOBS.paraboloid
+    const offset = () => SAMPLE[rule.value] ?? 0.5
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const { f, exact } = current()
+      const count = Math.round(n.value)
+      const step = 1 / count
+      const at = offset()
+
+      addLights(three, scene, 1)
+      scene.add(makeAxes(three, 1.5, palette["muted-foreground"], 1.6))
+
+      // Every column is the same unit box, moved and scaled per instance, so
+      // two thousand of them stay one draw call.
+      const box = new three.BoxGeometry(1, 1, 1)
+      const material = new three.MeshStandardMaterial({
+        color: palette.primary,
+        roughness: 0.8,
+        transparent: true,
+        opacity: 0.88,
+      })
+      const columns = new three.InstancedMesh(box, material, count * count)
+      const dummy = new three.Object3D()
+
+      let sum = 0
+      let index = 0
+      for (let i = 0; i < count; i++) {
+        for (let j = 0; j < count; j++) {
+          const x = (i + at) * step
+          const y = (j + at) * step
+          const value = f(x, y)
+          sum += value * step * step
+          const safe = Number.isFinite(value) ? value : 0
+          dummy.position.set(
+            (i + 0.5) * step - 0.5,
+            (j + 0.5) * step - 0.5,
+            safe / 2,
+          )
+          dummy.scale.set(step * 0.94, step * 0.94, Math.max(safe, 1e-4))
+          dummy.updateMatrix()
+          columns.setMatrixAt(index++, dummy.matrix)
+        }
+      }
+      columns.instanceMatrix.needsUpdate = true
+      scene.add(columns)
+
+      if (showSheet.on) {
+        const { geometry } = parametricMesh(
+          three,
+          (x, y) => [x - 0.5, y - 0.5, f(x, y)],
+          { uMin: 0, uMax: 1, vMin: 0, vMax: 1 },
+          70,
+          70,
+        )
+        scene.add(
+          new three.Mesh(
+            geometry,
+            new three.MeshStandardMaterial({
+              color: palette.accent,
+              roughness: 0.9,
+              side: three.DoubleSide,
+              transparent: true,
+              opacity: 0.45,
+              depthWrite: false,
+            }),
+          ),
+        )
+      }
+
+      setReadout("boxes", `${count} × ${count} = ${count * count}`)
+      setReadout("sum", fmt(sum, 5))
+      setReadout("exact", fmt(exact, 5))
+      const error = Math.abs(sum - exact)
+      setReadout("error", error > 0 ? error.toExponential(2) : "0")
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -0.95, elevation: 0.42, distance: 3.6 },
+      distanceRange: [1.8, 12],
+      build: buildScene,
+      update(handle, elapsed) {
+        if (!grow.on) return
+        const dt = elapsed - lastElapsed
+        lastElapsed = elapsed
+        if (dt <= 0) return
+        // Sweep up through the box counts, then start over.
+        const next = n.value + dt * 9
+        n.set(Math.round(next > 44 ? 1 : clamp(next, 1, 44)))
+        disposeChildren(handle.scene)
+        buildScene(handle)
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        if (grow.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the sum and the exact value still converge in the readout.
+      })
+
+    const disposeControls = disposeAll([surface, rule, n, showSheet, grow])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

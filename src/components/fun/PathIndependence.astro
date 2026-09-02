@@ -1,0 +1,458 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const fields = [
+  { value: "gradient", label: "(y, x)  — a gradient field" },
+  { value: "radial", label: "(x, y)  — a gradient field" },
+  { value: "swirl", label: "(−y, x)  — has curl" },
+  { value: "shear", label: "(y, 0)  — has curl" },
+  { value: "winding", label: "(−y, x) / (x² + y²)  — the awkward one" },
+]
+---
+
+<FunStage
+  slug="path-independence"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="Two different paths joining the same two points through a vector field, with the line integral along each reported separately."
+>
+  <Fragment slot="controls">
+    <FunSelect name="field" label="Field" options={fields} />
+    <FunSlider
+      name="ax"
+      label="Start x"
+      min={-250}
+      max={250}
+      step={1}
+      value={-150}
+      display="-1.50"
+    />
+    <FunSlider
+      name="ay"
+      label="Start y"
+      min={-160}
+      max={160}
+      step={1}
+      value={-90}
+      display="-0.90"
+    />
+    <FunSlider
+      name="bx"
+      label="End x"
+      min={-250}
+      max={250}
+      step={1}
+      value={150}
+      display="1.50"
+    />
+    <FunSlider
+      name="by"
+      label="End y"
+      min={-160}
+      max={160}
+      step={1}
+      value={60}
+      display="0.60"
+    />
+    <FunSlider
+      name="spread"
+      label="How far apart"
+      min={10}
+      max={200}
+      step={1}
+      value={110}
+      display="1.10"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="potential" label="Show the potential" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "top", label: "along the upper path" },
+        { name: "bottom", label: "along the lower path" },
+        { name: "gap", label: "difference" },
+        { name: "curl", label: "curl F on the upper path" },
+      ]}
+    />
+    <p class="fun-note">
+      Drag either endpoint. On a gradient field the two totals stay locked
+      together no matter where you put them.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Two routes, same start, same finish. Work out the work done along each.
+      For most fields the two answers differ — which route you took mattered.
+    </p>
+    <p>
+      For some fields they don't, ever. Those are the
+      <strong>gradient fields </strong>: fields that are the gradient of some
+      scalar
+      <strong>potential</strong>, whose contours are drawn faintly behind. For
+      those, the integral collapses to <strong>φ(end) − φ(start)</strong> — just
+      a height difference, blind to the route, exactly like the fundamental
+      theorem of calculus one dimension up. Gravity is the famous example:
+      carrying a box up the stairs or up a ramp costs the same.
+    </p>
+    <p>
+      There's a handy test for whether a field is one of these. Bending a path
+      slightly sweeps out a little region, and Green's theorem says the change
+      in the integral is the curl inside it. So no curl anywhere means no
+      change, ever — <strong>curl F = 0</strong> is necessary.
+    </p>
+    <p>
+      And now the awkward one. That last field has curl exactly zero everywhere
+      it is defined, and yet the two paths disagree — because it isn't defined
+      at the origin, and the region between the paths straddles that hole.
+      Green's theorem never applied. This is why the curl test comes with the
+      words <em>simply connected</em> attached: the shape of the domain is part
+      of the theorem, not fine print. Drag both endpoints to the same side of
+      the origin and the disagreement vanishes.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    levelsFor,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import {
+    type Scalar2,
+    type Vector2,
+    clamp,
+    curl,
+    fmt,
+    hypot,
+    lineIntegral,
+  } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { addPointerDrag } from "@/lib/fun/pointer"
+  import { alpha } from "@/lib/fun/theme"
+
+  interface Preset {
+    F: Vector2
+    /** The potential, when the field has one. */
+    phi: Scalar2 | null
+    /** Points the field is undefined at, drawn as a hole. */
+    hole: boolean
+  }
+
+  const PRESETS: Record<string, Preset> = {
+    gradient: { F: (x, y) => [y, x], phi: (x, y) => x * y, hole: false },
+    radial: {
+      F: (x, y) => [x, y],
+      phi: (x, y) => (x * x + y * y) / 2,
+      hole: false,
+    },
+    swirl: { F: (x, y) => [-y, x], phi: null, hole: false },
+    shear: { F: (_x, y) => [y, 0], phi: null, hole: false },
+    winding: {
+      F: (x, y) => {
+        const r2 = x * x + y * y
+        if (r2 < 1e-9) return [0, 0]
+        return [-y / r2, x / r2]
+      },
+      // Locally the potential is the polar angle, but it cannot be defined
+      // continuously all the way round — which is the entire point.
+      phi: null,
+      hole: true,
+    },
+  }
+
+  const HALF_Y = 1.9
+  const RESOLUTION = 150
+
+  registerFunApp('[data-fun-app="path-independence"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let gridAspect = 0
+
+    const invalidate = () => {
+      grid = null
+      gridAspect = 0
+    }
+
+    const field = bindSelect(root, "field", () => {
+      invalidate()
+      redraw()
+    })
+    const hundredths = (v: number) => (v / 100).toFixed(2)
+    const ax = bindSlider(root, "ax", { format: hundredths, onInput: redraw })
+    const ay = bindSlider(root, "ay", { format: hundredths, onInput: redraw })
+    const bx = bindSlider(root, "bx", { format: hundredths, onInput: redraw })
+    const by = bindSlider(root, "by", { format: hundredths, onInput: redraw })
+    const spread = bindSlider(root, "spread", {
+      format: hundredths,
+      onInput: redraw,
+    })
+    const showPotential = bindToggle(root, "potential", redraw)
+
+    const current = () => PRESETS[field.value] ?? PRESETS.gradient
+    const A = (): [number, number] => [ax.value / 100, ay.value / 100]
+    const B = (): [number, number] => [bx.value / 100, by.value / 100]
+
+    /** Two arcs between the same endpoints, bowed opposite ways. */
+    function arc(sign: number) {
+      return (t: number): [number, number] => {
+        const [x0, y0] = A()
+        const [x1, y1] = B()
+        const dx = x1 - x0
+        const dy = y1 - y0
+        const length = hypot(dx, dy) || 1
+        const lift = (sign * spread.value) / 100
+        const cx = (x0 + x1) / 2 - (dy / length) * lift * 2
+        const cy = (y0 + y1) / 2 + (dx / length) * lift * 2
+        const u = 1 - t
+        return [
+          u * u * x0 + 2 * u * t * cx + t * t * x1,
+          u * u * y0 + 2 * u * t * cy + t * t * y1,
+        ]
+      }
+    }
+
+    const HANDLE_RADIUS = 26
+    let dragging: "a" | "b" | null = null
+
+    const stopDrag = addPointerDrag(canvas, {
+      onDown(info) {
+        const [x0, y0] = A()
+        const [x1, y1] = B()
+        const toA = Math.hypot(info.x - plot.sx(x0), info.y - plot.sy(y0))
+        const toB = Math.hypot(info.x - plot.sx(x1), info.y - plot.sy(y1))
+        if (Math.min(toA, toB) > HANDLE_RADIUS) return false
+        dragging = toA <= toB ? "a" : "b"
+        move(info.x, info.y)
+      },
+      onMove(info) {
+        if (dragging) move(info.x, info.y)
+      },
+      onUp() {
+        dragging = null
+      },
+    })
+
+    function move(sx: number, sy: number) {
+      const x = Math.round(clamp(plot.wx(sx), -2.5, 2.5) * 100)
+      const y = Math.round(clamp(plot.wy(sy), -1.6, 1.6) * 100)
+      if (dragging === "a") {
+        ax.set(x)
+        ay.set(y)
+      } else {
+        bx.set(x)
+        by.set(y)
+      }
+      redraw()
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function samplePath(curve: (t: number) => [number, number]): number[] {
+      const points: number[] = []
+      for (let i = 0; i <= 220; i++) {
+        const [x, y] = curve(i / 220)
+        points.push(x, y)
+      }
+      return points
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const { F, phi, hole } = current()
+        const aspect = Math.round((width / height) * 50) / 50
+        const bounds = {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        }
+        plot.fit(width, height, bounds)
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, height)
+        ctx.clip()
+
+        if (showPotential.on && phi) {
+          if (!grid || gridAspect !== aspect) {
+            gridAspect = aspect
+            grid = sampleGrid(
+              phi,
+              bounds,
+              Math.min(320, Math.round(RESOLUTION * aspect)),
+              RESOLUTION,
+            )
+            levels = levelsFor(grid, 15)
+          }
+          for (const level of levels) {
+            plot.segments(contourSegments(grid, level), {
+              color: alpha(palette.accent, 0.3),
+              width: 1,
+            })
+          }
+        }
+
+        plot.axes(alpha(palette.foreground, 0.24))
+
+        const step = (2 * HALF_Y) / 12
+        let peak = 1e-9
+        for (let x = bounds.xMin; x <= bounds.xMax; x += step) {
+          for (let y = bounds.yMin; y <= bounds.yMax; y += step) {
+            const magnitude = hypot(...F(x, y))
+            if (Number.isFinite(magnitude)) peak = Math.max(peak, magnitude)
+          }
+        }
+        for (let x = bounds.xMin; x <= bounds.xMax; x += step) {
+          for (let y = bounds.yMin; y <= bounds.yMax; y += step) {
+            const [u, v] = F(x, y)
+            const magnitude = hypot(u, v)
+            if (!Number.isFinite(magnitude) || magnitude < peak * 0.04) continue
+            const drawn = Math.min(magnitude / peak, 1) * step * 0.7
+            plot.arrow(
+              x - ((u / magnitude) * drawn) / 2,
+              y - ((v / magnitude) * drawn) / 2,
+              x + ((u / magnitude) * drawn) / 2,
+              y + ((v / magnitude) * drawn) / 2,
+              {
+                color: alpha(palette["muted-foreground"], 0.5),
+                width: 1.2,
+                head: 5,
+              },
+            )
+          }
+        }
+
+        if (hole) {
+          plot.disc(0, 0, 7, {
+            fill: palette.background,
+            stroke: palette.destructive,
+            width: 2,
+          })
+          plot.text("not defined here", 0, 0, {
+            color: palette.destructive,
+            size: 10.5,
+            baseline: "top",
+            align: "center",
+          })
+        }
+
+        const upper = arc(1)
+        const lower = arc(-1)
+        plot.polyline(samplePath(upper), { color: palette.primary, width: 3.5 })
+        plot.polyline(samplePath(lower), {
+          color: palette.destructive,
+          width: 3.5,
+        })
+
+        for (const [curve, color] of [
+          [upper, palette.primary],
+          [lower, palette.destructive],
+        ] as const) {
+          for (let k = 1; k <= 4; k++) {
+            const t = k / 5
+            const here = curve(t)
+            const ahead = curve(t + 0.012)
+            plot.arrow(here[0], here[1], ahead[0], ahead[1], {
+              color,
+              width: 1.5,
+              head: 8,
+            })
+          }
+        }
+
+        const [x0, y0] = A()
+        const [x1, y1] = B()
+        plot.disc(x0, y0, 7, {
+          fill: palette.background,
+          stroke: palette.foreground,
+          width: 2.5,
+        })
+        plot.disc(x1, y1, 7, {
+          fill: palette.foreground,
+          stroke: palette.background,
+          width: 2.5,
+        })
+
+        ctx.restore()
+
+        const top = lineIntegral(F, upper, 0, 1, 320)
+        const bottom = lineIntegral(F, lower, 0, 1, 320)
+        // Sampled on the bowed path rather than between the endpoints: the
+        // straight-line midpoint can land exactly on a field's singularity,
+        // where the honest answer is "undefined" and the interesting one —
+        // that the curl vanishes everywhere it exists — never gets shown.
+        const [midX, midY] = upper(0.5)
+        const twist = curl(F, midX, midY)
+
+        setReadout("top", fmt(top, 4))
+        setReadout("bottom", fmt(bottom, 4))
+        setReadout("gap", fmt(Math.abs(top - bottom), 4))
+        setReadout(
+          "curl",
+          Number.isFinite(twist) && Math.abs(twist) < 1e6
+            ? fmt(twist, 4)
+            : "undefined here",
+        )
+
+        const agree = Math.abs(top - bottom) < 5e-4
+        const label = agree
+          ? "the two paths agree"
+          : "the two paths disagree: the route matters"
+        const panelWidth = agree ? 176 : 300
+        plot.panel(14, 14, panelWidth, 32, palette)
+        plot.screenText(label, 14 + panelWidth / 2, 30, {
+          color: agree ? palette.primary : palette.destructive,
+          size: 12,
+          weight: "600",
+        })
+      },
+    })
+
+    const disposeControls = disposeAll([
+      field,
+      ax,
+      ay,
+      bx,
+      by,
+      spread,
+      showPotential,
+    ])
+
+    return () => {
+      stopDrag()
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

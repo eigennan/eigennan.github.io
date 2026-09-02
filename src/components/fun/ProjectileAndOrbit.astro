@@ -1,0 +1,368 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const laws = [
+  { value: "uniform", label: "Gravity straight down" },
+  { value: "inverse", label: "Gravity toward a point" },
+]
+---
+
+<FunStage
+  slug="projectile-and-orbit"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A launched path under one of two gravity laws, with the velocity and acceleration arrows on the moving body and, in orbit, the equal areas its radius sweeps."
+>
+  <Fragment slot="controls">
+    <FunSelect name="law" label="Law of gravity" options={laws} />
+    <FunSlider
+      name="speed"
+      label="Launch speed"
+      min={20}
+      max={180}
+      step={1}
+      value={100}
+      display="1.00"
+    />
+    <FunSlider
+      name="angle"
+      label="Launch angle"
+      min={0}
+      max={175}
+      step={1}
+      value={55}
+      display="55°"
+    />
+    <FunSlider
+      name="time"
+      label="Time"
+      min={0}
+      max={1000}
+      step={1}
+      value={400}
+      display="0.40"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="play" label="Animate" />
+      <FunToggle name="sweeps" label="Swept areas" pressed />
+      <FunToggle name="family" label="Other angles" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "speedNow", label: "speed now" },
+        { name: "extra", label: "" },
+        { name: "sweep", label: "area swept per unit time" },
+      ]}
+    />
+    <p class="fun-note">
+      Under downward gravity, 45° goes furthest. Under point gravity there is no
+      furthest — you either fall back or leave.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Both halves of this are the same exercise: you are told the
+      <strong>acceleration</strong>, and you integrate twice to get the path.
+      What changes is only what the acceleration vector does.
+    </p>
+    <p>
+      Make it a constant pointing down and the answer is a parabola, every time.
+      The horizontal motion has no force on it at all so it just ticks along at
+      constant speed, while the vertical motion is the one-variable falling-body
+      problem. Splitting the vector equation into components is what makes it
+      easy — and 45° maximizing the range drops out of the algebra.
+    </p>
+    <p>
+      Now point the acceleration at a fixed centre instead, with strength
+      falling off as 1/r², and the parabolas become <strong>ellipses</strong>.
+      The same second-order equation, a different right-hand side, and suddenly
+      you have planetary orbits.
+    </p>
+    <p>
+      The shaded wedges are Kepler's second law: the radius sweeps
+      <strong>equal areas in equal times</strong>, so the body races through
+      close approach and dawdles at the far end. Each wedge covers the same
+      slice of time, and you can see them stretch thin and long near the centre.
+      It follows from nothing but the force pointing at the centre — no inverse
+      square needed — because that is exactly the condition for angular momentum
+      to be conserved, and swept area is angular momentum in disguise.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { fmt, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha } from "@/lib/fun/theme"
+
+  const GRAVITY = 1.2
+  const MU = 1.1
+  const STEPS = 1400
+  const SWEEP_COUNT = 10
+
+  interface Path {
+    points: number[]
+    /** Sampled velocity, aligned with `points`. */
+    velocity: number[]
+    duration: number
+  }
+
+  registerFunApp('[data-fun-app="projectile-and-orbit"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+    let lastElapsed = 0
+
+    const law = bindSelect(root, "law", () => {
+      relabel()
+      redraw()
+    })
+    const speed = bindSlider(root, "speed", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const angle = bindSlider(root, "angle", {
+      format: (v) => `${v}°`,
+      onInput: redraw,
+    })
+    const time = bindSlider(root, "time", {
+      format: (v) => (v / 1000).toFixed(2),
+      onInput: redraw,
+    })
+    const play = bindToggle(root, "play", (on) => {
+      app?.setAnimating(on)
+      redraw()
+    })
+    const showSweeps = bindToggle(root, "sweeps", redraw)
+    const showFamily = bindToggle(root, "family", redraw)
+
+    const orbiting = () => law.value === "inverse"
+
+    function relabel() {
+      const el = root
+        .querySelector<HTMLElement>('[data-fun-readout="extra"]')
+        ?.closest(".fun-readout-row")
+        ?.querySelector<HTMLElement>("dt")
+      if (el) el.textContent = orbiting() ? "orbit shape" : "range"
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /**
+     * Integrate the trajectory with velocity Verlet, which conserves energy
+     * far better than Euler over a whole orbit — an orbit drawn with Euler
+     * visibly spirals, and the equal-area claim would look false.
+     */
+    function integrate(launchAngle: number, launchSpeed: number): Path {
+      const points: number[] = []
+      const velocity: number[] = []
+      const dt = orbiting() ? 0.012 : 0.006
+      const start: [number, number] = orbiting() ? [1.05, 0] : [-1.7, -0.85]
+      let x = start[0]
+      let y = start[1]
+      let vx = launchSpeed * Math.cos(launchAngle)
+      let vy = launchSpeed * Math.sin(launchAngle)
+
+      const accel = (px: number, py: number): [number, number] => {
+        if (!orbiting()) return [0, -GRAVITY]
+        const r = Math.hypot(px, py)
+        if (r < 0.06) return [0, 0]
+        return [(-MU * px) / r ** 3, (-MU * py) / r ** 3]
+      }
+
+      let [axCurrent, ayCurrent] = accel(x, y)
+      for (let i = 0; i <= STEPS; i++) {
+        points.push(x, y)
+        velocity.push(vx, vy)
+        const nx = x + vx * dt + 0.5 * axCurrent * dt * dt
+        const ny = y + vy * dt + 0.5 * ayCurrent * dt * dt
+        const [axNext, ayNext] = accel(nx, ny)
+        vx += 0.5 * (axCurrent + axNext) * dt
+        vy += 0.5 * (ayCurrent + ayNext) * dt
+        x = nx
+        y = ny
+        axCurrent = axNext
+        ayCurrent = ayNext
+        // Stop a projectile once it lands; let an orbit keep going.
+        if (!orbiting() && y < -0.9 && i > 4) break
+      }
+
+      return { points, velocity, duration: (points.length / 2 - 1) * dt }
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ width, height, palette }, elapsed) {
+        if (play.on) {
+          const dt = elapsed - lastElapsed
+          if (dt > 0) time.set(Math.round((time.value + dt * 260) % 1000))
+        }
+        lastElapsed = elapsed
+
+        const half = orbiting() ? 2.1 : 1.35
+        const aspect = width / height
+        const centerY = orbiting() ? 0 : -0.1
+        plot.fit(width, height, {
+          xMin: -half * aspect,
+          xMax: half * aspect,
+          yMin: centerY - half,
+          yMax: centerY + half,
+        })
+
+        plot.grid(alpha(palette.foreground, 0.06), 0.5)
+        plot.axes(alpha(palette.foreground, 0.24))
+
+        if (!orbiting()) {
+          plot.polyline([-half * aspect, -0.9, half * aspect, -0.9], {
+            color: alpha(palette.foreground, 0.5),
+            width: 2,
+          })
+        } else {
+          plot.disc(0, 0, 9, {
+            fill: palette.primary,
+            stroke: palette.background,
+            width: 2,
+          })
+        }
+
+        const launchSpeed = speed.value / 100
+        const launchAngle = (angle.value * Math.PI) / 180
+
+        // A faint family at other launch angles, for comparison.
+        if (showFamily.on) {
+          for (let a = 15; a <= 165; a += 15) {
+            if (Math.abs(a - angle.value) < 8) continue
+            const other = integrate((a * Math.PI) / 180, launchSpeed)
+            plot.polyline(other.points, {
+              color: alpha(palette["muted-foreground"], 0.3),
+              width: 1,
+            })
+          }
+        }
+
+        const path = integrate(launchAngle, launchSpeed)
+        plot.polyline(path.points, { color: palette.accent, width: 2.5 })
+
+        // Kepler's wedges: equal slices of *time*, so equal areas.
+        if (showSweeps.on && orbiting()) {
+          const total = path.points.length / 2
+          const per = Math.floor(total / SWEEP_COUNT)
+          for (let k = 0; k < SWEEP_COUNT; k += 2) {
+            const wedge: number[] = [0, 0]
+            for (
+              let i = k * per;
+              i <= Math.min((k + 1) * per, total - 1);
+              i++
+            ) {
+              wedge.push(path.points[i * 2], path.points[i * 2 + 1])
+            }
+            plot.fillPath(wedge, alpha(palette.destructive, 0.22))
+          }
+        }
+
+        const index = Math.min(
+          path.points.length / 2 - 1,
+          Math.floor((time.value / 1000) * (path.points.length / 2 - 1)),
+        )
+        const bx = path.points[index * 2]
+        const by = path.points[index * 2 + 1]
+        const vx = path.velocity[index * 2]
+        const vy = path.velocity[index * 2 + 1]
+        const speedNow = hypot(vx, vy)
+
+        if (speedNow > 1e-6) {
+          plot.arrow(
+            bx,
+            by,
+            bx + (vx / speedNow) * 0.42,
+            by + (vy / speedNow) * 0.42,
+            {
+              color: palette.destructive,
+              width: 3,
+            },
+          )
+        }
+        const ax = orbiting() ? -bx : 0
+        const ay = orbiting() ? -by : -1
+        const aLength = hypot(ax, ay) || 1
+        plot.arrow(
+          bx,
+          by,
+          bx + (ax / aLength) * 0.32,
+          by + (ay / aLength) * 0.32,
+          {
+            color: palette.primary,
+            width: 3,
+          },
+        )
+        plot.disc(bx, by, 7, {
+          fill: palette.foreground,
+          stroke: palette.background,
+          width: 2,
+        })
+
+        setReadout("speedNow", fmt(speedNow, 3))
+        if (orbiting()) {
+          const radii = []
+          for (let i = 0; i < path.points.length; i += 2) {
+            radii.push(hypot(path.points[i], path.points[i + 1]))
+          }
+          const near = Math.min(...radii)
+          const far = Math.max(...radii)
+          setReadout(
+            "extra",
+            far > 8
+              ? "escaping"
+              : `perihelion ${fmt(near, 2)}, aphelion ${fmt(far, 2)}`,
+          )
+          // dA/dt = ½|r × v|, constant when the force points at the centre.
+          setReadout("sweep", fmt(Math.abs(bx * vy - by * vx) / 2, 4))
+        } else {
+          const landedX = path.points[path.points.length - 2]
+          setReadout("extra", fmt(landedX - path.points[0], 3))
+          setReadout("sweep", "—")
+        }
+      },
+    })
+
+    relabel()
+    const disposeControls = disposeAll([
+      law,
+      speed,
+      angle,
+      time,
+      play,
+      showSweeps,
+      showFamily,
+    ])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

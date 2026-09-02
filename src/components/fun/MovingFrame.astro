@@ -1,0 +1,457 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const curves = [
+  { value: "helix", label: "Helix" },
+  { value: "ellipse", label: "Ellipse (flat)" },
+  { value: "cubic", label: "Twisted cubic" },
+  { value: "trefoil", label: "Trefoil knot" },
+  { value: "viviani", label: "Viviani's curve" },
+]
+---
+
+<FunStage
+  slug="moving-frame"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A curve in space carrying three perpendicular arrows at a movable point, together with the circle that best fits the curve there."
+>
+  <Fragment slot="controls">
+    <FunSelect name="curve" label="Curve" options={curves} />
+    <FunSlider
+      name="t"
+      label="Position"
+      min={0}
+      max={1000}
+      step={1}
+      value={230}
+      display="0.230"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="circle" label="Best-fit circle" pressed />
+      <FunToggle name="ride" label="Ride along" />
+    </div>
+    <ul class="fun-legend">
+      <li>
+        <span class="fun-legend-swatch" data-tone="destructive"></span>
+        <strong>T</strong>&nbsp;— where you're heading
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="accent"></span>
+        <strong>N</strong>&nbsp;— the way you're turning
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="primary"></span>
+        <strong>B</strong>&nbsp;— normal to the turning plane
+      </li>
+    </ul>
+    <FunReadout
+      rows={[
+        { name: "speed", label: "speed |r′|" },
+        { name: "kappa", label: "curvature κ" },
+        { name: "radius", label: "radius 1/κ" },
+        { name: "tau", label: "torsion τ" },
+      ]}
+    />
+    <p class="fun-note">
+      On the helix, curvature and torsion never change. That is the whole reason
+      a helix looks the same from every point along it.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A curve in space has no preferred directions of its own — but at every
+      point it can build three, out of nothing but its own shape. Together they
+      are the <strong>moving frame</strong>, and they travel with you like a
+      cockpit.
+    </p>
+    <p>
+      <strong>T</strong>
+      points where you're heading. <strong>N</strong> points the way you're
+      turning, perpendicular to T, toward the inside of the bend.
+      <strong>B</strong>
+      is perpendicular to both — it names the plane you are momentarily turning
+      in.
+    </p>
+    <p>
+      The circle is the honest measure of how sharply you're turning. Of all
+      circles through your position, exactly one matches the curve's direction
+      <em>and</em>
+      its rate of turning; its radius is 1/κ. A gentle bend gets a huge circle,
+      a tight one gets a small circle, and on a straight stretch the circle
+      escapes to infinity and κ drops to zero.
+    </p>
+    <p>
+      Torsion is the other half of the story: how fast the curve twists out of
+      that circle's plane. A flat curve has τ = 0 everywhere, however wildly it
+      bends — try the ellipse. A helix has both constant and nonzero, which is
+      exactly what makes it a helix, and together κ and τ determine a curve in
+      space completely up to where you put it and how you turn it.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import type * as ThreeNamespace from "three"
+
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { arrowField } from "@/lib/fun/arrows3d"
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import { clamp, fmt } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+
+  type Vec3 = [number, number, number]
+
+  interface Curve {
+    at: (t: number) => Vec3
+    tMin: number
+    tMax: number
+  }
+
+  const CURVES: Record<string, Curve> = {
+    helix: {
+      at: (t) => [Math.cos(t), Math.sin(t), 0.35 * t],
+      tMin: 0,
+      tMax: 6 * Math.PI,
+    },
+    ellipse: {
+      at: (t) => [2 * Math.cos(t), Math.sin(t), 0],
+      tMin: 0,
+      tMax: 2 * Math.PI,
+    },
+    cubic: {
+      at: (t) => [t, t * t, 0.75 * t * t * t],
+      tMin: -1.5,
+      tMax: 1.5,
+    },
+    trefoil: {
+      at: (t) => [
+        Math.sin(t) + 2 * Math.sin(2 * t),
+        Math.cos(t) - 2 * Math.cos(2 * t),
+        -Math.sin(3 * t),
+      ],
+      tMin: 0,
+      tMax: 2 * Math.PI,
+    },
+    viviani: {
+      at: (t) => [1 + Math.cos(t), Math.sin(t), 2 * Math.sin(t / 2)],
+      tMin: 0,
+      tMax: 4 * Math.PI,
+    },
+  }
+
+  const CURVE_SAMPLES = 900
+  const H = 1e-3
+
+  const sub = (a: Vec3, b: Vec3): Vec3 => [
+    a[0] - b[0],
+    a[1] - b[1],
+    a[2] - b[2],
+  ]
+  const scale = (a: Vec3, k: number): Vec3 => [a[0] * k, a[1] * k, a[2] * k]
+  const add = (a: Vec3, b: Vec3): Vec3 => [
+    a[0] + b[0],
+    a[1] + b[1],
+    a[2] + b[2],
+  ]
+  const norm = (a: Vec3) => Math.hypot(a[0], a[1], a[2])
+  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+  const cross = (a: Vec3, b: Vec3): Vec3 => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ]
+
+  registerFunApp('[data-fun-app="moving-frame"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let frameGroup: ThreeNamespace.Group | null = null
+    let disposed = false
+
+    const curve = bindSelect(root, "curve", () => {
+      if (stage) {
+        frameCamera(stage)
+        rebuild()
+      }
+      update()
+    })
+    const position = bindSlider(root, "t", {
+      format: (v) => (v / 1000).toFixed(3),
+      onInput: update,
+    })
+    const showCircle = bindToggle(root, "circle", update)
+    const ride = bindToggle(root, "ride", (on) => {
+      stage?.setAnimating(on)
+      update()
+    })
+
+    const current = () => CURVES[curve.value] ?? CURVES.helix
+    const parameter = () => {
+      const c = current()
+      return c.tMin + (c.tMax - c.tMin) * (position.value / 1000)
+    }
+
+    /**
+     * The Frenet apparatus by central differences. Third derivatives need a
+     * coarser step than first ones or rounding swamps the torsion, so `H` is
+     * deliberately larger than the gradient step used elsewhere.
+     */
+    function frenet(t: number) {
+      const c = current()
+      const p = c.at(t)
+      const d1 = scale(sub(c.at(t + H), c.at(t - H)), 1 / (2 * H))
+      const d2 = scale(
+        add(sub(c.at(t + H), scale(p, 2)), c.at(t - H)),
+        1 / (H * H),
+      )
+      const d3 = scale(
+        add(
+          sub(c.at(t + 2 * H), scale(c.at(t + H), 2)),
+          sub(scale(c.at(t - H), 2), c.at(t - 2 * H)),
+        ),
+        1 / (2 * H * H * H),
+      )
+
+      const speed = norm(d1)
+      const d1xd2 = cross(d1, d2)
+      const cxLength = norm(d1xd2)
+      const kappa = speed > 1e-9 ? cxLength / speed ** 3 : 0
+      const tau = cxLength > 1e-9 ? dot(d1xd2, d3) / (cxLength * cxLength) : 0
+
+      const T: Vec3 = speed > 1e-9 ? scale(d1, 1 / speed) : [1, 0, 0]
+      const B: Vec3 = cxLength > 1e-9 ? scale(d1xd2, 1 / cxLength) : [0, 0, 1]
+      const N = cross(B, T)
+
+      return { p, T, N, B, kappa, tau, speed }
+    }
+
+    /**
+     * Point the camera at the curve rather than at the origin. A helix climbs
+     * well clear of it, so targeting the origin would leave the curve running
+     * off the top of the frame.
+     */
+    function frameCamera(handle: Scene3DHandle) {
+      const c = current()
+      const min: Vec3 = [Infinity, Infinity, Infinity]
+      const max: Vec3 = [-Infinity, -Infinity, -Infinity]
+      for (let i = 0; i <= 200; i++) {
+        const point = c.at(c.tMin + ((c.tMax - c.tMin) * i) / 200)
+        for (let k = 0; k < 3; k++) {
+          min[k] = Math.min(min[k], point[k])
+          max[k] = Math.max(max[k], point[k])
+        }
+      }
+      handle.orbit.target = [
+        (min[0] + max[0]) / 2,
+        (min[1] + max[1]) / 2,
+        (min[2] + max[2]) / 2,
+      ]
+      const radius =
+        Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2
+      handle.orbit.distance = clamp(radius * 2.3 + 1.6, 3, 40)
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const c = current()
+
+      addLights(three, scene, 0.9)
+      const [, , targetZ] = handle.orbit.target
+      scene.add(
+        makeAxes(
+          three,
+          3.4,
+          palette["muted-foreground"],
+          Math.abs(targetZ) * 2 + 2,
+        ),
+      )
+
+      const points: number[] = []
+      for (let i = 0; i <= CURVE_SAMPLES; i++) {
+        const [x, y, z] = c.at(c.tMin + ((c.tMax - c.tMin) * i) / CURVE_SAMPLES)
+        points.push(x, y, z)
+      }
+      const geometry = new three.BufferGeometry()
+      geometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute(points, 3),
+      )
+      scene.add(
+        new three.Line(
+          geometry,
+          new three.LineBasicMaterial({
+            color: palette["muted-foreground"],
+            transparent: true,
+            opacity: 0.75,
+          }),
+        ),
+      )
+
+      frameGroup = new three.Group()
+      scene.add(frameGroup)
+      drawFrame(handle)
+    }
+
+    function drawFrame(handle: Scene3DHandle) {
+      const { three, palette } = handle
+      if (!frameGroup) return
+      disposeChildren(frameGroup)
+
+      const { p, T, N, B, kappa } = frenet(parameter())
+
+      // T, N and B in three clearly distinct colours: heading, turning, and
+      // the normal to the plane the turn happens in.
+      const arrows: [Vec3, string][] = [
+        [T, palette.destructive],
+        [N, palette.accent],
+        [B, palette.primary],
+      ]
+      // Sized against the camera distance so the frame stays readable whether
+      // the curve is a small ellipse or a long helix.
+      const reach = handle.orbit.distance * 0.14
+      for (const [direction, color] of arrows) {
+        frameGroup.add(
+          arrowField(three, [{ origin: p, direction, length: reach }], {
+            color,
+            thickness: 0.035,
+            head: 0.28,
+          }),
+        )
+      }
+
+      frameGroup.add(
+        new three.Mesh(
+          new three.SphereGeometry(handle.orbit.distance * 0.014, 20, 14),
+          new three.MeshStandardMaterial({
+            color: palette.foreground,
+            roughness: 0.5,
+          }),
+        )
+          .translateX(p[0])
+          .translateY(p[1])
+          .translateZ(p[2]),
+      )
+
+      if (showCircle.on && kappa > 1e-4) {
+        const radius = 1 / kappa
+        // Only draw a circle that stays in frame; a nearly straight stretch
+        // would otherwise produce one the size of the solar system.
+        if (radius < 40) {
+          const center = add(p, scale(N, radius))
+          const ring: number[] = []
+          for (let i = 0; i <= 128; i++) {
+            const a = (i / 128) * Math.PI * 2
+            const point = add(
+              center,
+              add(
+                scale(T, radius * Math.sin(a)),
+                scale(N, -radius * Math.cos(a)),
+              ),
+            )
+            ring.push(point[0], point[1], point[2])
+          }
+          const ringGeometry = new three.BufferGeometry()
+          ringGeometry.setAttribute(
+            "position",
+            new three.Float32BufferAttribute(ring, 3),
+          )
+          frameGroup.add(
+            new three.Line(
+              ringGeometry,
+              new three.LineBasicMaterial({
+                color: palette.accent,
+                transparent: true,
+                opacity: 0.75,
+              }),
+            ),
+          )
+        }
+      }
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function update() {
+      const { kappa, tau, speed } = frenet(parameter())
+      setReadout("speed", fmt(speed, 3))
+      setReadout("kappa", fmt(kappa, 3))
+      setReadout("radius", kappa > 1e-4 ? fmt(1 / kappa, 3) : "infinite")
+      setReadout("tau", fmt(tau, 3))
+      if (stage) {
+        drawFrame(stage)
+        stage.redraw()
+      }
+    }
+
+    function rebuild() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      frameGroup = null
+      buildScene(stage)
+    }
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.0, elevation: 0.32 },
+      distanceRange: [3, 40],
+      build(handle) {
+        frameCamera(handle)
+        buildScene(handle)
+      },
+      update(handle, elapsed) {
+        if (!ride.on) return
+        // One lap every twelve seconds, driving the same slider the user does.
+        const next = (elapsed / 12) % 1
+        position.set(Math.round(next * 1000))
+        drawFrame(handle)
+        const { kappa, tau, speed } = frenet(parameter())
+        setReadout("speed", fmt(speed, 3))
+        setReadout("kappa", fmt(kappa, 3))
+        setReadout("radius", kappa > 1e-4 ? fmt(1 / kappa, 3) : "infinite")
+        setReadout("tau", fmt(tau, 3))
+      },
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+        update()
+        if (ride.on) handle.setAnimating(true)
+      })
+      .catch(() => {
+        // No WebGL: the readouts below still carry the numbers.
+      })
+
+    const disposeControls = disposeAll([curve, position, showCircle, ride])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

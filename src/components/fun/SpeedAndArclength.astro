@@ -1,0 +1,395 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const curves = [
+  { value: "ellipse", label: "Ellipse" },
+  { value: "cardioid", label: "Cardioid" },
+  { value: "lissajous", label: "Lissajous figure" },
+  { value: "spiral", label: "Spiral" },
+]
+---
+
+<FunStage
+  slug="speed-and-arclength"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A curve with a chain of straight segments laid along it, two dots travelling it at different rates, and a graph of speed against the parameter."
+>
+  <Fragment slot="controls">
+    <FunSelect name="curve" label="Curve" options={curves} />
+    <FunSlider
+      name="segments"
+      label="Segments"
+      min={2}
+      max={90}
+      step={1}
+      value={9}
+      display="9"
+    />
+    <FunSlider
+      name="t"
+      label="Position"
+      min={0}
+      max={1000}
+      step={1}
+      value={220}
+      display="0.22"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="race" label="Race the two dots" />
+      <FunToggle name="ticks" label="Equal steps of t" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "polyline", label: "polyline length" },
+        { name: "exact", label: "true arclength" },
+        { name: "speed", label: "speed here" },
+        { name: "gap", label: "how far short" },
+      ]}
+    />
+    <p class="fun-note">
+      The ticks are equally spaced in t, not in distance. Where they bunch up,
+      the curve is being traced slowly.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A parametrization tells you two different things at once: which
+      <em>points</em>
+      make up the curve, and how fast you travel through them. The first is the
+      curve's own business. The second is entirely up to whoever wrote the
+      formula, and it usually varies wildly along the way.
+    </p>
+    <p>
+      The tick marks make that visible. They're equally spaced in the parameter
+      <strong>t</strong>, and they're plainly not equally spaced along the
+      curve. Where they crowd together the point is dawdling; where they stretch
+      apart it's racing. The <strong>speed</strong> |r′(t)| in the graph below
+      is exactly that stretching factor.
+    </p>
+    <p>
+      Which is why length is <strong>∫|r′(t)| dt</strong> and not just the
+      change in t. You're adding up distance actually covered, and the speed is
+      the conversion rate between parameter and distance at each instant.
+      Stretch a chain of straight segments along the curve and let their number
+      grow, and that's the same sum arriving from the other direction.
+    </p>
+    <p>
+      Reparametrizing by arclength is the act of throwing the arbitrary part
+      away: re-run the curve so speed is exactly 1 everywhere, and the parameter
+      becomes distance travelled. Race the two dots and watch one of them keep a
+      steady pace while the other lurches. They trace precisely the same curve.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { type Curve2, clamp, fmt, hypot } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha } from "@/lib/fun/theme"
+
+  const CURVES: Record<string, { at: Curve2; tMax: number; half: number }> = {
+    ellipse: {
+      at: (t) => [1.5 * Math.cos(t), 0.85 * Math.sin(t)],
+      tMax: Math.PI * 2,
+      half: 1.8,
+    },
+    cardioid: {
+      at: (t) => {
+        const r = 0.75 * (1 - Math.cos(t))
+        return [r * Math.cos(t) + 0.5, r * Math.sin(t)]
+      },
+      tMax: Math.PI * 2,
+      half: 1.8,
+    },
+    lissajous: {
+      at: (t) => [1.4 * Math.sin(3 * t), 1.1 * Math.sin(2 * t)],
+      tMax: Math.PI * 2,
+      half: 1.7,
+    },
+    spiral: {
+      at: (t) => [0.22 * t * Math.cos(t), 0.22 * t * Math.sin(t)],
+      tMax: Math.PI * 4,
+      half: 3,
+    },
+  }
+
+  const STRIP_HEIGHT = 104
+  /** Panels for the reference arclength integral. */
+  const FINE = 4000
+
+  registerFunApp('[data-fun-app="speed-and-arclength"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+    let lastElapsed = 0
+
+    const curve = bindSelect(root, "curve", redraw)
+    const segments = bindSlider(root, "segments", {
+      format: (v) => String(v),
+      onInput: redraw,
+    })
+    const position = bindSlider(root, "t", {
+      format: (v) => (v / 1000).toFixed(2),
+      onInput: redraw,
+    })
+    const race = bindToggle(root, "race", (on) => {
+      app?.setAnimating(on)
+      redraw()
+    })
+    const showTicks = bindToggle(root, "ticks", redraw)
+
+    const current = () => CURVES[curve.value] ?? CURVES.ellipse
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    const speedAt = (at: Curve2, t: number) => {
+      const h = 1e-5
+      const [ax, ay] = at(t + h)
+      const [bx, by] = at(t - h)
+      return hypot((ax - bx) / (2 * h), (ay - by) / (2 * h))
+    }
+
+    /**
+     * Cumulative arclength on a fine lattice. Inverting it by search is what
+     * lets the second dot travel at constant speed — that inverse *is* the
+     * arclength reparametrization, computed rather than solved for.
+     */
+    function arcTable(at: Curve2, tMax: number): Float64Array {
+      const table = new Float64Array(FINE + 1)
+      let previous = at(0)
+      for (let i = 1; i <= FINE; i++) {
+        const point = at((i / FINE) * tMax)
+        table[i] =
+          table[i - 1] + hypot(point[0] - previous[0], point[1] - previous[1])
+        previous = point
+      }
+      return table
+    }
+
+    function parameterAtLength(
+      table: Float64Array,
+      tMax: number,
+      target: number,
+    ): number {
+      let low = 0
+      let high = FINE
+      while (low < high) {
+        const mid = (low + high) >> 1
+        if (table[mid] < target) low = mid + 1
+        else high = mid
+      }
+      return (low / FINE) * tMax
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }, elapsed) {
+        if (race.on) {
+          const dt = elapsed - lastElapsed
+          if (dt > 0)
+            position.set(Math.round((position.value + dt * 190) % 1000))
+        }
+        lastElapsed = elapsed
+
+        const { at, tMax, half } = current()
+        const mapHeight = height - STRIP_HEIGHT
+        const aspect = width / mapHeight
+        plot.fit(width, mapHeight, {
+          xMin: -half * aspect,
+          xMax: half * aspect,
+          yMin: -half,
+          yMax: half,
+        })
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, mapHeight)
+        ctx.clip()
+
+        plot.grid(alpha(palette.foreground, 0.06), 0.5)
+        plot.axes(alpha(palette.foreground, 0.24))
+
+        // The true curve, faint behind the chain that approximates it.
+        const smooth: number[] = []
+        for (let i = 0; i <= 900; i++) {
+          const [x, y] = at((i / 900) * tMax)
+          smooth.push(x, y)
+        }
+        plot.polyline(smooth, {
+          color: alpha(palette.accent, 0.55),
+          width: 4,
+        })
+
+        const n = Math.round(segments.value)
+        const chain: number[] = []
+        let polylineLength = 0
+        let previous = at(0)
+        chain.push(previous[0], previous[1])
+        for (let i = 1; i <= n; i++) {
+          const point = at((i / n) * tMax)
+          polylineLength += hypot(
+            point[0] - previous[0],
+            point[1] - previous[1],
+          )
+          chain.push(point[0], point[1])
+          previous = point
+        }
+        plot.polyline(chain, { color: palette.foreground, width: 2 })
+        for (let i = 0; i <= n; i++) {
+          const [x, y] = at((i / n) * tMax)
+          plot.disc(x, y, 3.5, { fill: palette.foreground })
+        }
+
+        if (showTicks.on) {
+          for (let i = 0; i < 60; i++) {
+            const t = (i / 60) * tMax
+            const [x, y] = at(t)
+            plot.disc(x, y, 2, { fill: alpha(palette.destructive, 0.75) })
+          }
+        }
+
+        const table = arcTable(at, tMax)
+        const exact = table[FINE]
+
+        const fraction = position.value / 1000
+        const [px, py] = at(fraction * tMax)
+        // The second dot walks equal *distance* per unit of the same slider.
+        const [qx, qy] = at(parameterAtLength(table, tMax, fraction * exact))
+
+        plot.disc(px, py, 8, {
+          fill: palette.destructive,
+          stroke: palette.background,
+          width: 2.5,
+        })
+        plot.disc(qx, qy, 8, {
+          fill: palette.primary,
+          stroke: palette.background,
+          width: 2.5,
+        })
+
+        ctx.restore()
+
+        setReadout("polyline", fmt(polylineLength, 4))
+        setReadout("exact", fmt(exact, 4))
+        setReadout("speed", fmt(speedAt(at, fraction * tMax), 4))
+        setReadout("gap", fmt(exact - polylineLength, 5))
+
+        drawStrip(ctx, palette, width, mapHeight, at, tMax, fraction)
+      },
+    })
+
+    /** Speed against the parameter, with the current position marked. */
+    function drawStrip(
+      ctx: CanvasRenderingContext2D,
+      palette: Record<string, string>,
+      width: number,
+      top: number,
+      at: Curve2,
+      tMax: number,
+      fraction: number,
+    ) {
+      const padX = 18
+      const innerWidth = width - padX * 2
+      const innerTop = top + 24
+      const innerHeight = STRIP_HEIGHT - 40
+
+      ctx.beginPath()
+      ctx.moveTo(0, top)
+      ctx.lineTo(width, top)
+      ctx.strokeStyle = alpha(palette.border, 1)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      const samples = 240
+      const speeds: number[] = []
+      for (let i = 0; i <= samples; i++) {
+        speeds.push(speedAt(at, (i / samples) * tMax))
+      }
+      const peak = Math.max(...speeds, 1e-6)
+
+      const px = (i: number) => padX + (i / samples) * innerWidth
+      const py = (value: number) =>
+        innerTop + innerHeight - (value / peak) * innerHeight
+
+      ctx.beginPath()
+      speeds.forEach((value, i) => {
+        if (i === 0) ctx.moveTo(px(i), py(value))
+        else ctx.lineTo(px(i), py(value))
+      })
+      ctx.strokeStyle = palette.destructive
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      // Constant speed is what reparametrizing by arclength would give.
+      const meanSpeed =
+        speeds.reduce((sum, value) => sum + value, 0) / speeds.length
+      ctx.beginPath()
+      ctx.moveTo(px(0), py(meanSpeed))
+      ctx.lineTo(px(samples), py(meanSpeed))
+      ctx.strokeStyle = alpha(palette.primary, 0.9)
+      ctx.lineWidth = 1.75
+      ctx.setLineDash([6, 4])
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      const marker = px(clamp(fraction, 0, 1) * samples)
+      ctx.beginPath()
+      ctx.moveTo(marker, innerTop)
+      ctx.lineTo(marker, innerTop + innerHeight)
+      ctx.strokeStyle = alpha(palette.foreground, 0.5)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      plot.screenText("speed |r′(t)|", padX, top + 6, {
+        color: palette["muted-foreground"],
+        size: 11,
+        align: "left",
+        baseline: "top",
+      })
+      plot.screenText("constant, if reparametrized", width - padX, top + 6, {
+        color: palette.primary,
+        size: 10.5,
+        align: "right",
+        baseline: "top",
+      })
+    }
+
+    const disposeControls = disposeAll([
+      curve,
+      segments,
+      position,
+      race,
+      showTicks,
+    ])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

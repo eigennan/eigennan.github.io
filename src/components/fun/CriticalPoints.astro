@@ -1,0 +1,314 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const landscapes = [
+  { value: "collide", label: "x³ − 3λx + y²  (they collide)" },
+  { value: "quartic", label: "x⁴ − λx² + y²  (one splits into two)" },
+  { value: "hills", label: "Two hills and a pass" },
+  { value: "monkey", label: "Monkey saddle" },
+]
+---
+
+<FunStage
+  slug="critical-points"
+  ratio="3 / 2"
+  narrowRatio="1 / 1"
+  label="A contour map with every flat spot marked and labelled as a minimum, a maximum or a saddle."
+>
+  <Fragment slot="controls">
+    <FunSelect name="landscape" label="Landscape" options={landscapes} />
+    <FunSlider
+      name="lambda"
+      label="λ"
+      min={-100}
+      max={200}
+      step={1}
+      value={100}
+      display="1.00"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="shade" label="Shading" pressed />
+      <FunToggle name="gradient" label="Gradient field" />
+    </div>
+    <ul class="fun-legend">
+      <li>
+        <span class="fun-legend-swatch" data-tone="accent"></span>
+        minimum — bowl, D &gt; 0 and f<sub>xx</sub>
+        &gt; 0
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="primary"></span>
+        maximum — dome, D &gt; 0 and f<sub>xx</sub>
+        &lt; 0
+      </li>
+      <li>
+        <span class="fun-legend-swatch" data-tone="destructive"></span>
+        saddle — D &lt; 0
+      </li>
+    </ul>
+    <FunReadout
+      rows={[
+        { name: "count", label: "flat spots found" },
+        { name: "kinds", label: "what they are" },
+      ]}
+    />
+    <p class="fun-note">
+      Slide λ down to zero and watch two of them meet. At the instant they
+      touch, D is zero and the test says nothing.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A flat spot is any place the gradient vanishes — no uphill direction, no
+      downhill one. In one variable that leaves two possibilities and the second
+      derivative settles it. In two variables there is a third: the surface can
+      rise one way and fall the other, and that's a <strong>saddle</strong>.
+    </p>
+    <p>
+      So a single second derivative isn't enough; you need all of them, arranged
+      into the discriminant
+      <strong>D = f<sub>xx</sub>f<sub>yy</sub> − f<sub>xy</sub>²</strong>. When
+      D is negative you have a saddle, full stop. Only once D is positive does
+      the sign of f<sub>xx</sub>
+      get to say whether you're in a bowl or under a dome.
+    </p>
+    <p>
+      That cross term matters more than it looks. A surface can curve upward
+      along both axes and still be a saddle, because the fall-off hides in a
+      diagonal direction that neither axis sees. The determinant catches it;
+      checking f<sub>xx</sub>
+      and f<sub>yy</sub>
+      alone does not.
+    </p>
+    <p>
+      And when <strong>D = 0</strong> the test genuinely has no answer — the
+      quadratic approximation is flat in some direction and whatever decides the
+      behaviour lives in higher-order terms. Slide λ to the moment two flat
+      spots collide and you're looking straight at that case: they merge,
+      annihilate, and leave nothing behind.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import {
+    type Grid,
+    contourSegments,
+    gridToImage,
+    levelsFor,
+    sampleGrid,
+  } from "@/lib/fun/contour"
+  import { findCriticalPoints } from "@/lib/fun/criticalpoints"
+  import { type Scalar2, gradient, hypot, lerp } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha, mix } from "@/lib/fun/theme"
+
+  const LANDSCAPES: Record<string, (lambda: number) => Scalar2> = {
+    collide: (l) => (x, y) => x ** 3 - 3 * l * x + y * y,
+    quartic: (l) => (x, y) => x ** 4 - l * x * x + y * y,
+    hills: (l) => (x, y) =>
+      -2 * Math.exp(-((x - l) ** 2) - 2 * y * y) -
+      1.6 * Math.exp(-((x + 1.2) ** 2) - 2 * y * y) +
+      0.14 * (x * x + y * y),
+    monkey: (l) => (x, y) => x ** 3 - 3 * l * x * y * y,
+  }
+
+  const HALF_Y = 1.7
+  const RESOLUTION = 165
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="critical-points"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let grid: Grid | null = null
+    let levels: number[] = []
+    let gridAspect = 0
+    let shading: HTMLCanvasElement | null = null
+    let shadingKey = ""
+
+    const invalidate = () => {
+      grid = null
+      gridAspect = 0
+      shading = null
+    }
+
+    const landscape = bindSelect(root, "landscape", () => {
+      invalidate()
+      redraw()
+    })
+    const lambda = bindSlider(root, "lambda", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: () => {
+        invalidate()
+        redraw()
+      },
+    })
+    const showShade = bindToggle(root, "shade", redraw)
+    const showGradient = bindToggle(root, "gradient", redraw)
+
+    const current = (): Scalar2 =>
+      (LANDSCAPES[landscape.value] ?? LANDSCAPES.collide)(lambda.value / 100)
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const f = current()
+        const aspect = Math.round((width / height) * 50) / 50
+        const bounds = {
+          xMin: -HALF_Y * aspect,
+          xMax: HALF_Y * aspect,
+          yMin: -HALF_Y,
+          yMax: HALF_Y,
+        }
+        plot.fit(width, height, bounds)
+
+        if (!grid || gridAspect !== aspect) {
+          gridAspect = aspect
+          grid = sampleGrid(
+            f,
+            bounds,
+            Math.min(320, Math.round(RESOLUTION * aspect)),
+            RESOLUTION,
+          )
+          levels = levelsFor(grid, 15)
+          shading = null
+        }
+
+        if (showShade.on) {
+          const key = `${palette.background}|${palette.primary}`
+          if (!shading || shadingKey !== key) {
+            shadingKey = key
+            const low = rgb(mix(palette.background, palette.accent, 0.3))
+            const high = rgb(mix(palette.background, palette.primary, 0.68))
+            shading = gridToImage(grid, (t) => [
+              lerp(low[0], high[0], t),
+              lerp(low[1], high[1], t),
+              lerp(low[2], high[2], t),
+            ])
+          }
+          ctx.imageSmoothingEnabled = true
+          ctx.drawImage(
+            shading,
+            plot.sx(bounds.xMin),
+            plot.sy(bounds.yMax),
+            (bounds.xMax - bounds.xMin) * plot.scale,
+            (bounds.yMax - bounds.yMin) * plot.scale,
+          )
+        }
+
+        plot.axes(alpha(palette.foreground, 0.24))
+        for (const level of levels) {
+          plot.segments(contourSegments(grid, level), {
+            color: alpha(palette.foreground, 0.26),
+            width: 1,
+          })
+        }
+
+        if (showGradient.on) {
+          const step = (2 * HALF_Y) / 15
+          for (let x = bounds.xMin; x <= bounds.xMax; x += step) {
+            for (let y = bounds.yMin; y <= bounds.yMax; y += step) {
+              const [gx, gy] = gradient(f, x, y)
+              const magnitude = hypot(gx, gy)
+              if (!Number.isFinite(magnitude) || magnitude < 1e-6) continue
+              const drawn = Math.min(magnitude * 0.06, step * 0.75)
+              plot.arrow(
+                x,
+                y,
+                x + (gx / magnitude) * drawn,
+                y + (gy / magnitude) * drawn,
+                {
+                  color: alpha(palette["muted-foreground"], 0.55),
+                  width: 1.1,
+                  head: 5,
+                },
+              )
+            }
+          }
+        }
+
+        const points = findCriticalPoints(f, bounds)
+        const tone: Record<string, string> = {
+          minimum: palette.accent,
+          maximum: palette.primary,
+          saddle: palette.destructive,
+          degenerate: palette["muted-foreground"],
+        }
+
+        for (const point of points) {
+          plot.disc(point.x, point.y, 8, {
+            fill: tone[point.kind],
+            stroke: palette.background,
+            width: 2.5,
+          })
+          plot.text(point.kind, point.x, point.y - 0.16, {
+            color: tone[point.kind],
+            size: 11.5,
+            weight: "600",
+            baseline: "top",
+            plate: alpha(palette.background, 0.8),
+          })
+        }
+
+        const tally = points.reduce<Record<string, number>>((acc, point) => {
+          acc[point.kind] = (acc[point.kind] ?? 0) + 1
+          return acc
+        }, {})
+        setReadout("count", String(points.length))
+        setReadout(
+          "kinds",
+          points.length === 0
+            ? "none — the surface has no flat spot here"
+            : Object.entries(tally)
+                .map(([kind, n]) => `${n} ${kind}${n > 1 ? "s" : ""}`)
+                .join(", "),
+        )
+      },
+    })
+
+    const disposeControls = disposeAll([
+      landscape,
+      lambda,
+      showShade,
+      showGradient,
+    ])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

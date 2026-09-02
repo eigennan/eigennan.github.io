@@ -1,0 +1,404 @@
+---
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const regions = [
+  { value: "triangle", label: "Triangle under y = x" },
+  { value: "parabola", label: "Above y = x²" },
+  { value: "lens", label: "Between y = x² and y = 2 − x²" },
+  { value: "quarter", label: "Quarter disk" },
+]
+---
+
+<FunStage
+  slug="order-of-integration"
+  ratio="8 / 5"
+  narrowRatio="3 / 4"
+  label="The same region swept twice: once by vertical strips and once by horizontal strips, with the integration limits each sweep produces shown above it."
+>
+  <Fragment slot="controls">
+    <FunSelect name="region" label="Region" options={regions} />
+    <FunSlider
+      name="sweep"
+      label="Sweep"
+      min={0}
+      max={1000}
+      step={1}
+      value={620}
+      display="0.62"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="play" label="Animate" />
+      <FunToggle name="grid" label="Grid" pressed />
+    </div>
+    <p class="fun-note">
+      Try the lens. Sweeping sideways runs into a corner where the region
+      changes shape, and one integral is no longer enough.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      A double integral is a total. The region says <em>which</em> points to add
+      up; it says nothing about the order you visit them in. Both sweeps below
+      cover exactly the same points and give exactly the same answer.
+    </p>
+    <p>
+      What changes is the <strong>bookkeeping</strong>. Sweeping with vertical
+      strips, the outer variable is x and the inner limits are the top and
+      bottom of the strip standing at that x — so the inner limits are functions
+      of x. Sweeping with horizontal strips, everything swaps.
+    </p>
+    <p>
+      That's the whole reason to draw the region before setting up the integral.
+      The limits are not something you can read off the integrand; they are a
+      fact about the picture, and they are different facts depending on which
+      way you slice.
+    </p>
+    <p>
+      Sometimes one order is simply harder. On the lens region, a horizontal
+      strip is bounded by the lower parabola until y reaches 1, and by the upper
+      one after that — so that order takes <strong>two</strong> integrals while
+      the vertical order takes one. Choosing the order well is most of the
+      skill.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { type Bounds, contourSegments, sampleGrid } from "@/lib/fun/contour"
+  import { fmt } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { type Palette, alpha } from "@/lib/fun/theme"
+
+  interface Region {
+    /** Negative inside the region; the boundary is its zero set. */
+    phi: (x: number, y: number) => number
+    view: Bounds
+    outer: { vertical: string; horizontal: string }
+    inner: { vertical: string; horizontal: string }
+  }
+
+  const REGIONS: Record<string, Region> = {
+    triangle: {
+      phi: (x, y) => Math.max(-x, x - 1, -y, y - x),
+      view: { xMin: -0.25, xMax: 1.25, yMin: -0.25, yMax: 1.25 },
+      outer: { vertical: "0 <= x <= 1", horizontal: "0 <= y <= 1" },
+      inner: { vertical: "0 <= y <= x", horizontal: "y <= x <= 1" },
+    },
+    parabola: {
+      phi: (x, y) => Math.max(-x, x - 1, x * x - y, y - 1),
+      view: { xMin: -0.25, xMax: 1.25, yMin: -0.25, yMax: 1.25 },
+      outer: { vertical: "0 <= x <= 1", horizontal: "0 <= y <= 1" },
+      inner: { vertical: "x^2 <= y <= 1", horizontal: "0 <= x <= sqrt(y)" },
+    },
+    lens: {
+      phi: (x, y) => Math.max(x * x - y, y - (2 - x * x)),
+      view: { xMin: -1.45, xMax: 1.45, yMin: -0.3, yMax: 2.3 },
+      outer: { vertical: "-1 <= x <= 1", horizontal: "0 <= y <= 2" },
+      inner: {
+        vertical: "x^2 <= y <= 2 - x^2",
+        horizontal: "two cases: split at y = 1",
+      },
+    },
+    quarter: {
+      phi: (x, y) => Math.max(x * x + y * y - 1, -x, -y),
+      view: { xMin: -0.25, xMax: 1.25, yMin: -0.25, yMax: 1.25 },
+      outer: { vertical: "0 <= x <= 1", horizontal: "0 <= y <= 1" },
+      inner: {
+        vertical: "0 <= y <= sqrt(1 - x^2)",
+        horizontal: "0 <= x <= sqrt(1 - y^2)",
+      },
+    },
+  }
+
+  const HEADER = 54
+  const SAMPLES = 260
+
+  registerFunApp('[data-fun-app="order-of-integration"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const ctx = maybeContext
+    const plot = new Plot2D(ctx)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let outline: [number, number, number, number][] = []
+    let outlineKey = ""
+    let lastElapsed = 0
+
+    const region = bindSelect(root, "region", () => {
+      outlineKey = ""
+      redraw()
+    })
+    const sweep = bindSlider(root, "sweep", {
+      format: (v) => (v / 1000).toFixed(2),
+      onInput: redraw,
+    })
+    const play = bindToggle(root, "play", (on) => {
+      app?.setAnimating(on)
+      redraw()
+    })
+    const showGrid = bindToggle(root, "grid", redraw)
+
+    const current = () => REGIONS[region.value] ?? REGIONS.triangle
+
+    /**
+     * The intervals of `along` that lie inside the region on the line where the
+     * swept variable equals `at`. More than one interval is exactly the case
+     * that forces the integral to be split.
+     */
+    function runs(
+      r: Region,
+      at: number,
+      vertical: boolean,
+    ): [number, number][] {
+      const min = vertical ? r.view.yMin : r.view.xMin
+      const max = vertical ? r.view.yMax : r.view.xMax
+      const found: [number, number][] = []
+      let start: number | null = null
+      let previous = 0
+
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = min + ((max - min) * i) / SAMPLES
+        const value = vertical ? r.phi(at, t) : r.phi(t, at)
+        const inside = value <= 0
+        if (inside && start === null) {
+          // Refine the entry against the previous outside sample.
+          const back = min + ((max - min) * (i - 1)) / SAMPLES
+          start = i === 0 ? t : bisect(r, at, back, t, vertical, previous)
+        } else if (!inside && start !== null) {
+          const back = min + ((max - min) * (i - 1)) / SAMPLES
+          found.push([start, bisect(r, at, back, t, vertical, previous)])
+          start = null
+        }
+        previous = value
+      }
+      if (start !== null) found.push([start, max])
+      return found
+    }
+
+    function bisect(
+      r: Region,
+      at: number,
+      lowT: number,
+      highT: number,
+      vertical: boolean,
+      lowValue: number,
+    ): number {
+      let a = lowT
+      let b = highT
+      let fa = lowValue
+      for (let k = 0; k < 24; k++) {
+        const mid = (a + b) / 2
+        const fm = vertical ? r.phi(at, mid) : r.phi(mid, at)
+        if (fa <= 0 === fm <= 0) {
+          a = mid
+          fa = fm
+        } else {
+          b = mid
+        }
+      }
+      return (a + b) / 2
+    }
+
+    function ensureOutline(r: Region) {
+      const key = region.value
+      if (outlineKey === key) return
+      outlineKey = key
+      const grid = sampleGrid(r.phi, r.view, 300, 300)
+      outline = contourSegments(grid, 0)
+    }
+
+    function drawPanel(
+      palette: Palette,
+      px: number,
+      py: number,
+      pw: number,
+      ph: number,
+      vertical: boolean,
+    ) {
+      const r = current()
+      const fraction = sweep.value / 1000
+
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.beginPath()
+      ctx.rect(0, 0, pw, ph)
+      ctx.clip()
+
+      const plotHeight = ph - HEADER
+      const spanX = r.view.xMax - r.view.xMin
+      const spanY = r.view.yMax - r.view.yMin
+      // Pad the view so the region never touches the panel edge.
+      const aspect = pw / plotHeight
+      const halfY = Math.max(spanY, spanX / aspect) / 2 + 0.12
+      const centerX = (r.view.xMin + r.view.xMax) / 2
+      const centerY = (r.view.yMin + r.view.yMax) / 2
+      ctx.translate(0, HEADER)
+      plot.fit(pw, plotHeight, {
+        xMin: centerX - halfY * aspect,
+        xMax: centerX + halfY * aspect,
+        yMin: centerY - halfY,
+        yMax: centerY + halfY,
+      })
+
+      if (showGrid.on) plot.grid(alpha(palette.foreground, 0.08), 0.25)
+      plot.axes(alpha(palette.foreground, 0.3))
+
+      // The whole region, faint; then the part the sweep has already covered.
+      const outerMin = vertical ? r.view.xMin : r.view.yMin
+      const outerMax = vertical ? r.view.xMax : r.view.yMax
+      const at = outerMin + (outerMax - outerMin) * fraction
+
+      const stripCount = 150
+      for (let i = 0; i < stripCount; i++) {
+        const t = outerMin + ((outerMax - outerMin) * i) / stripCount
+        const next = outerMin + ((outerMax - outerMin) * (i + 1)) / stripCount
+        const covered = next <= at
+        for (const [low, high] of runs(r, (t + next) / 2, vertical)) {
+          const box = vertical
+            ? [t, low, next, low, next, high, t, high]
+            : [low, t, high, t, high, next, low, next]
+          plot.fillPath(
+            box,
+            covered
+              ? alpha(palette.accent, 0.28)
+              : alpha(palette["muted-foreground"], 0.12),
+          )
+        }
+      }
+
+      plot.segments(outline, { color: palette.foreground, width: 2.25 })
+
+      // The strip standing at the current outer value.
+      const intervals = runs(r, at, vertical)
+      for (const [low, high] of intervals) {
+        const bar = vertical ? [at, low, at, high] : [low, at, high, at]
+        plot.polyline(bar, { color: palette.destructive, width: 4 })
+        for (const end of [low, high]) {
+          const point = vertical ? [at, end] : [end, at]
+          plot.disc(point[0], point[1], 4.5, { fill: palette.destructive })
+        }
+      }
+
+      // The outer variable's position, marked on its own axis.
+      const guide = vertical
+        ? [at, plot.bounds.yMin, at, plot.bounds.yMax]
+        : [plot.bounds.xMin, at, plot.bounds.xMax, at]
+      plot.polyline(guide, {
+        color: alpha(palette.destructive, 0.4),
+        width: 1,
+        dash: [4, 4],
+      })
+
+      ctx.restore()
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.beginPath()
+      ctx.rect(0, 0, pw, ph)
+      ctx.clip()
+
+      const title = vertical
+        ? "vertical strips: dy dx"
+        : "horizontal strips: dx dy"
+      const outerLabel = vertical ? r.outer.vertical : r.outer.horizontal
+      const innerLabel = vertical ? r.inner.vertical : r.inner.horizontal
+      const letter = vertical ? "x" : "y"
+      const other = vertical ? "y" : "x"
+      const live =
+        intervals.length === 0
+          ? `at ${letter} = ${fmt(at)}, the strip is empty`
+          : intervals.length === 1
+            ? `at ${letter} = ${fmt(at)}, ${other}: ${fmt(intervals[0][0])} to ${fmt(intervals[0][1])}`
+            : `at ${letter} = ${fmt(at)}, ${other} covers ${intervals.length} pieces`
+
+      plot.screenText(title, 16, 16, {
+        color: palette.foreground,
+        size: 12.5,
+        align: "left",
+        baseline: "top",
+        weight: "600",
+      })
+      plot.screenText(`${outerLabel},  ${innerLabel}`, 16, 33, {
+        color: palette["muted-foreground"],
+        size: 11.5,
+        align: "left",
+        baseline: "top",
+        mono: true,
+      })
+      plot.screenText(live, 16, ph - 18, {
+        color: palette.destructive,
+        size: 11.5,
+        align: "left",
+        baseline: "bottom",
+        mono: true,
+      })
+      ctx.restore()
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ width, height, palette }, elapsed) {
+        if (play.on) {
+          const dt = elapsed - lastElapsed
+          if (dt > 0) {
+            const next = (sweep.value + dt * 320) % 1000
+            sweep.set(Math.round(next))
+          }
+        }
+        lastElapsed = elapsed
+
+        const r = current()
+        ensureOutline(r)
+
+        const sideBySide = width / height > 1.5
+        const gap = 1
+        if (sideBySide) {
+          const pw = (width - gap) / 2
+          drawPanel(palette, 0, 0, pw, height, true)
+          drawPanel(palette, pw + gap, 0, pw, height, false)
+          ctx.beginPath()
+          ctx.moveTo(pw + gap / 2, 12)
+          ctx.lineTo(pw + gap / 2, height - 12)
+          ctx.strokeStyle = alpha(palette.border, 1)
+          ctx.lineWidth = 1
+          ctx.stroke()
+        } else {
+          const ph = (height - gap) / 2
+          drawPanel(palette, 0, 0, width, ph, true)
+          drawPanel(palette, 0, ph + gap, width, ph, false)
+          ctx.beginPath()
+          ctx.moveTo(12, ph + gap / 2)
+          ctx.lineTo(width - 12, ph + gap / 2)
+          ctx.strokeStyle = alpha(palette.border, 1)
+          ctx.lineWidth = 1
+          ctx.stroke()
+        }
+      },
+    })
+
+    const disposeControls = disposeAll([region, sweep, play, showGrid])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>

@@ -1,0 +1,493 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const systems = [
+  { value: "cylindrical", label: "Cylindrical  (r, θ, z)" },
+  { value: "spherical", label: "Spherical  (ρ, φ, θ)" },
+]
+---
+
+<FunStage
+  slug="coordinate-systems"
+  ratio="4 / 3"
+  narrowRatio="1 / 1"
+  label="A point in space located by three coordinates, with the surface each one holds constant drawn around it, and the little box of volume those coordinates carve out."
+>
+  <Fragment slot="controls">
+    <FunSelect name="system" label="System" options={systems} />
+    <FunSlider
+      name="a"
+      label="first coordinate"
+      min={5}
+      max={190}
+      step={1}
+      value={120}
+      display="1.20"
+    />
+    <FunSlider
+      name="b"
+      label="second coordinate"
+      min={0}
+      max={360}
+      step={1}
+      value={55}
+      display="55°"
+    />
+    <FunSlider
+      name="c"
+      label="third coordinate"
+      min={-150}
+      max={150}
+      step={1}
+      value={70}
+      display="0.70"
+    />
+    <FunSlider
+      name="cell"
+      label="Box size"
+      min={4}
+      max={30}
+      step={1}
+      value={16}
+      display="0.16"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="surfaces" label="Coordinate surfaces" pressed />
+      <FunToggle name="cells" label="Volume boxes" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "cartesian", label: "(x, y, z)" },
+        { name: "factor", label: "volume factor here" },
+        { name: "predicted", label: "factor × Δ Δ Δ" },
+        { name: "measured", label: "measured box volume" },
+      ]}
+    />
+    <p class="fun-note">
+      Slide the first coordinate toward zero and watch the boxes collapse. That
+      shrinking is the whole reason for the extra factor.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      Every coordinate system is a promise that three numbers name a point.
+      Holding one number fixed and letting the other two run sweeps out a
+      <strong>coordinate surface</strong>: in cylindrical coordinates those are
+      a cylinder, a half-plane and a flat plane; in spherical they become a
+      sphere, a cone and the same half-plane. The point you're looking at is
+      where all three meet.
+    </p>
+    <p>
+      Now the part that matters for integration. In ordinary xyz coordinates a
+      little box of side Δx, Δy, Δz has volume Δx Δy Δz wherever you put it. In
+      these systems it does <strong>not</strong>. Two of the coordinates are
+      angles, and turning through a fixed angle sweeps a long way out near the
+      rim and hardly any distance near the axis.
+    </p>
+    <p>
+      So the boxes are fat far out and thin near the middle, and the honest
+      volume carries a correction: <strong>r dr dθ dz</strong> for cylindrical,
+      <strong>ρ² sin φ dρ dφ dθ</strong>
+      for spherical. The two bottom rows are that claim under test — the
+      formula's prediction against the box's measured volume. Shrink the box and
+      they converge, exactly as they do for the Jacobian, because that is
+      precisely what these factors are.
+    </p>
+    <p>
+      Push the second angle past 180° in spherical and watch the point climb
+      back up the other side rather than continuing down. That's why φ is
+      normally kept in [0, π] — beyond it, the naming stops being unique.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import { registerFunApp } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { fmt, fmtSmall } from "@/lib/fun/numeric"
+  import {
+    type Scene3DHandle,
+    addLights,
+    disposeChildren,
+    makeAxes,
+    mountScene3D,
+  } from "@/lib/fun/scene3d"
+  import {
+    type Domain,
+    type Surface,
+    type Vec3,
+    parametricMesh,
+  } from "@/lib/fun/surface3d"
+
+  const DEG = Math.PI / 180
+
+  registerFunApp('[data-fun-app="coordinate-systems"]', (root) => {
+    const glCanvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    if (!glCanvas) return () => {}
+
+    let stage: Scene3DHandle | null = null
+    let disposed = false
+
+    const system = bindSelect(root, "system", () => {
+      relabel()
+      refresh()
+    })
+    const a = bindSlider(root, "a", { format: () => "", onInput: refresh })
+    const b = bindSlider(root, "b", { format: () => "", onInput: refresh })
+    const c = bindSlider(root, "c", { format: () => "", onInput: refresh })
+    const cell = bindSlider(root, "cell", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: refresh,
+    })
+    const showSurfaces = bindToggle(root, "surfaces", refresh)
+    const showCells = bindToggle(root, "cells", refresh)
+
+    const spherical = () => system.value === "spherical"
+
+    /** The three coordinates, in the current system's own units. */
+    function coords(): [number, number, number] {
+      return spherical()
+        ? [a.value / 100, b.value * DEG, c.value * DEG * 2]
+        : [a.value / 100, b.value * DEG, c.value / 100]
+    }
+
+    function toCartesian(u: number, v: number, w: number): Vec3 {
+      if (spherical()) {
+        // u = rho, v = phi (down from the axis), w = theta (around).
+        return [
+          u * Math.sin(v) * Math.cos(w),
+          u * Math.sin(v) * Math.sin(w),
+          u * Math.cos(v),
+        ]
+      }
+      // u = r, v = theta, w = z.
+      return [u * Math.cos(v), u * Math.sin(v), w]
+    }
+
+    /** |∂r/∂u · (∂r/∂v × ∂r/∂w)| — r for cylindrical, ρ² sin φ for spherical. */
+    function volumeFactor(u: number, v: number): number {
+      return spherical() ? u * u * Math.abs(Math.sin(v)) : Math.abs(u)
+    }
+
+    function label(name: string, text: string) {
+      const el = root
+        .querySelector<HTMLElement>(`[data-fun-input="${name}"]`)
+        ?.closest(".fun-control")
+        ?.querySelector<HTMLElement>(".fun-control-label")
+      if (el) el.textContent = text
+    }
+
+    function relabel() {
+      const names = spherical()
+        ? ["ρ — out from the origin", "φ — down from the axis", "θ — around"]
+        : ["r — out from the axis", "θ — around", "z — up"]
+      label("a", names[0])
+      label("b", names[1])
+      label("c", names[2])
+    }
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    function shell(
+      handle: Scene3DHandle,
+      r: Surface,
+      domain: Domain,
+      color: string,
+      opacity: number,
+    ) {
+      const { three } = handle
+      const { geometry } = parametricMesh(three, r, domain, 48, 48)
+      return new three.Mesh(
+        geometry,
+        new three.MeshStandardMaterial({
+          color,
+          roughness: 0.9,
+          transparent: true,
+          opacity,
+          side: three.DoubleSide,
+          depthWrite: false,
+        }),
+      )
+    }
+
+    function buildScene(handle: Scene3DHandle) {
+      const { three, scene, palette } = handle
+      const [u, v, w] = coords()
+
+      addLights(three, scene, 0.95)
+      scene.add(makeAxes(three, 2.2, palette["muted-foreground"], 2.2))
+
+      if (showSurfaces.on) {
+        if (spherical()) {
+          // rho constant: a sphere. phi constant: a cone. theta constant: a plane.
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(u, s, t),
+              { uMin: 0.001, uMax: Math.PI, vMin: 0, vMax: Math.PI * 2 },
+              palette.accent,
+              0.14,
+            ),
+          )
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(s, v, t),
+              { uMin: 0, uMax: 2, vMin: 0, vMax: Math.PI * 2 },
+              palette.primary,
+              0.2,
+            ),
+          )
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(s, t, w),
+              { uMin: 0, uMax: 2, vMin: 0.001, vMax: Math.PI },
+              palette.destructive,
+              0.2,
+            ),
+          )
+        } else {
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(u, s, t),
+              { uMin: 0, uMax: Math.PI * 2, vMin: -1.6, vMax: 1.6 },
+              palette.accent,
+              0.14,
+            ),
+          )
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(s, v, t),
+              { uMin: 0, uMax: 2, vMin: -1.6, vMax: 1.6 },
+              palette.primary,
+              0.2,
+            ),
+          )
+          scene.add(
+            shell(
+              handle,
+              (s, t) => toCartesian(s, t, w),
+              { uMin: 0, uMax: 2, vMin: 0, vMax: Math.PI * 2 },
+              palette.destructive,
+              0.16,
+            ),
+          )
+        }
+      }
+
+      const step = cell.value / 100
+
+      // A full lattice of coordinate cells rather than scattered boxes: the
+      // point of the picture is that neighbouring cells differ in size, and
+      // that only reads when they sit side by side sharing edges.
+      if (showCells.on) {
+        const lattice: number[] = []
+        const trace = (
+          from: [number, number, number],
+          to: [number, number, number],
+          steps: number,
+        ) => {
+          let previous = toCartesian(from[0], from[1], from[2])
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps
+            const point = toCartesian(
+              from[0] + (to[0] - from[0]) * t,
+              from[1] + (to[1] - from[1]) * t,
+              from[2] + (to[2] - from[2]) * t,
+            )
+            lattice.push(...previous, ...point)
+            previous = point
+          }
+        }
+
+        if (spherical()) {
+          // A latitude/longitude net on the sphere the point sits on: cells
+          // are widest at the equator and pinch to nothing at the poles.
+          const rings = 8
+          const sectors = 16
+          for (let i = 1; i < rings; i++) {
+            const phi = (i / rings) * Math.PI
+            trace([u, phi, 0], [u, phi, Math.PI * 2], 96)
+          }
+          for (let j = 0; j < sectors; j++) {
+            const theta = (j / sectors) * Math.PI * 2
+            trace([u, 0.001, theta], [u, Math.PI - 0.001, theta], 64)
+          }
+        } else {
+          // A dartboard on the plane the point sits in: same dr and dtheta
+          // everywhere, cells visibly fatter the further out you go.
+          const rings = 6
+          const sectors = 16
+          const outer = 1.8
+          for (let i = 1; i <= rings; i++) {
+            const radius = (i / rings) * outer
+            trace([radius, 0, w], [radius, Math.PI * 2, w], 96)
+          }
+          for (let j = 0; j < sectors; j++) {
+            const theta = (j / sectors) * Math.PI * 2
+            trace([outer / rings, theta, w], [outer, theta, w], 8)
+          }
+        }
+
+        const geometry = new three.BufferGeometry()
+        geometry.setAttribute(
+          "position",
+          new three.Float32BufferAttribute(lattice, 3),
+        )
+        scene.add(
+          new three.LineSegments(
+            geometry,
+            new three.LineBasicMaterial({
+              color: palette.foreground,
+              transparent: true,
+              opacity: 0.45,
+            }),
+          ),
+        )
+      }
+
+      // The point itself, and its own box.
+      const at = toCartesian(u, v, w)
+      const marker = new three.Mesh(
+        new three.SphereGeometry(0.07, 20, 14),
+        new three.MeshStandardMaterial({
+          color: palette.destructive,
+          roughness: 0.45,
+        }),
+      )
+      marker.position.set(at[0], at[1], at[2])
+      scene.add(marker)
+
+      const own: number[] = []
+      addBoxEdges(own, u, v, w, step)
+      const ownGeometry = new three.BufferGeometry()
+      ownGeometry.setAttribute(
+        "position",
+        new three.Float32BufferAttribute(own, 3),
+      )
+      scene.add(
+        new three.LineSegments(
+          ownGeometry,
+          new three.LineBasicMaterial({ color: palette.destructive }),
+        ),
+      )
+
+      const factor = volumeFactor(u, v)
+      const deltas = spherical() ? [step, step, step] : [step, step, step]
+      const predicted = factor * deltas[0] * deltas[1] * deltas[2]
+
+      setReadout("cartesian", `(${fmt(at[0])}, ${fmt(at[1])}, ${fmt(at[2])})`)
+      setReadout("factor", fmt(factor, 4))
+      setReadout("predicted", fmtSmall(predicted))
+      setReadout("measured", fmtSmall(measureBox(u, v, w, step)))
+    }
+
+    /** The twelve edges of the box the three coordinates carve out. */
+    function addBoxEdges(
+      out: number[],
+      u: number,
+      v: number,
+      w: number,
+      step: number,
+    ) {
+      const half = step / 2
+      const corner = (i: number, j: number, k: number) =>
+        toCartesian(
+          u + (i ? half : -half),
+          v + (j ? half : -half),
+          w + (k ? half : -half),
+        )
+      const edges: [number[], number[]][] = []
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+          edges.push([corner(i, j, 0), corner(i, j, 1)])
+          edges.push([corner(i, 0, j), corner(i, 1, j)])
+          edges.push([corner(0, i, j), corner(1, i, j)])
+        }
+      }
+      for (const [p, q] of edges) out.push(...p, ...q)
+    }
+
+    /** ∭ of the volume factor over the box, by midpoint sum. */
+    function measureBox(u: number, v: number, w: number, step: number): number {
+      const n = 8
+      const h = step / n
+      let total = 0
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          for (let k = 0; k < n; k++) {
+            total +=
+              volumeFactor(
+                u - step / 2 + (i + 0.5) * h,
+                v - step / 2 + (j + 0.5) * h,
+              ) *
+              h *
+              h *
+              h
+          }
+        }
+      }
+      void w
+      return total
+    }
+
+    function refresh() {
+      if (!stage || disposed) return
+      disposeChildren(stage.scene)
+      buildScene(stage)
+      stage.redraw()
+    }
+
+    relabel()
+
+    void mountScene3D({
+      canvas: glCanvas,
+      orbit: { azimuth: -1.05, elevation: 0.4, distance: 6.6 },
+      distanceRange: [3, 18],
+      build: buildScene,
+    })
+      .then((handle) => {
+        if (disposed) {
+          handle.dispose()
+          return
+        }
+        stage = handle
+      })
+      .catch(() => {
+        // No WebGL: the volume comparison still runs.
+      })
+
+    const disposeControls = disposeAll([
+      system,
+      a,
+      b,
+      c,
+      cell,
+      showSurfaces,
+      showCells,
+    ])
+
+    return () => {
+      disposed = true
+      disposeControls()
+      stage?.dispose()
+    }
+  })
+</script>

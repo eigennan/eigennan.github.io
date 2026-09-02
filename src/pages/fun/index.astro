@@ -1,0 +1,169 @@
+---
+import "@/styles/chip-filter.css"
+import "@/styles/fun.css"
+import {
+  FUN_GROUPS,
+  FUN_KIND_TAGS,
+  countByKind,
+  kindTags,
+} from "@/lib/fun/registry"
+import { slugify } from "@/lib/string-manipulation"
+import CommonLayout from "@/layouts/CommonLayout.astro"
+import Icon from "@/components/base/Icon.astro"
+import TaxonomyChip from "@/components/base/TaxonomyChip.astro"
+import Card from "@/components/base/card/Card.astro"
+import CardDescription from "@/components/base/card/CardDescription.astro"
+import CardGroup from "@/components/base/card/CardGroup.astro"
+import CardHeader from "@/components/base/card/CardHeader.astro"
+import CardTitle from "@/components/base/card/CardTitle.astro"
+
+const groups = FUN_GROUPS.map((group) => ({
+  ...group,
+  slug: slugify(group.title),
+}))
+const total = groups.reduce((sum, group) => sum + group.apps.length, 0)
+---
+
+<CommonLayout
+  title="Fun"
+  description={`${total} interactive toys for the parts of multivariable calculus that a still picture can't show. Everything runs in the browser, on a phone or a laptop.`}
+  prose={false}
+  breadcrumbs={[{ label: "Fun", icon: "mingcute:sparkles-line" }]}
+>
+  <div class="fun-gallery" data-fun-gallery>
+    <div class="fun-filters">
+      <div
+        class="fun-filter-row"
+        role="group"
+        aria-labelledby="fun-theme-label"
+      >
+        <span class="fun-filter-label" id="fun-theme-label">Topic</span>
+        <div class="chip-filter-bar">
+          {groups.map((group) => (
+            <TaxonomyChip
+              label={group.title}
+              count={group.apps.length}
+              countNoun="toy"
+              data-fun-theme-filter={group.slug}
+              aria-pressed="false"
+              aria-label={`Show only ${group.title}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div class="fun-filter-row" role="group" aria-labelledby="fun-kind-label">
+        <span class="fun-filter-label" id="fun-kind-label">Kind</span>
+        <div class="chip-filter-bar">
+          {FUN_KIND_TAGS.map((tag) => (
+            <TaxonomyChip
+              label={tag}
+              count={countByKind(tag)}
+              countNoun="toy"
+              prefix=""
+              data-fun-kind-filter={tag}
+              aria-pressed="false"
+              aria-label={`Show only ${tag} toys`}
+            />
+          ))}
+          <span class="chip-active-filter" data-fun-active hidden>
+            <TaxonomyChip
+              label="Clear"
+              prefix="×"
+              tone="destructive"
+              data-fun-clear
+              aria-label="Clear all filters"
+            />
+          </span>
+        </div>
+      </div>
+
+      <span
+        class="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+        data-fun-status
+      ></span>
+    </div>
+
+    <div class="fun-empty" data-fun-empty hidden>
+      <h2>Nothing matches</h2>
+      <p>Try clearing a filter.</p>
+    </div>
+
+    {groups.map((group) => (
+      <section data-fun-group>
+        <div class="fun-group-head">
+          <h2>{group.title}</h2>
+          <p>{group.blurb}</p>
+        </div>
+        <CardGroup columns={2}>
+          {group.apps.map((app) => (
+            <Card
+              href={`/fun/${app.slug}`}
+              label={app.title}
+              data-fun-card
+              data-fun-theme={group.slug}
+              data-fun-kind={kindTags(app).join(",")}
+            >
+              <CardHeader>
+                <div class="fun-card-head">
+                  <Icon name={app.icon} size="1.15rem" class="fun-card-icon" />
+                  <CardTitle>{app.title}</CardTitle>
+                  <span class="fun-card-kind">{app.kind}</span>
+                </div>
+                <CardDescription>{app.blurb}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </CardGroup>
+      </section>
+    ))}
+  </div>
+</CommonLayout>
+
+<script>
+  import { initFacetedChipFilter } from "@/lib/chip-filter"
+
+  function initFunFilters() {
+    // astro:page-load and astro:after-swap both fire per navigation; the flag
+    // lives on a swapped-in element so it resets on the next real one.
+    const anchor = document.querySelector<HTMLElement>("[data-fun-gallery]")
+    if (!anchor || anchor.dataset.filtersInitialized === "true") return
+    anchor.dataset.filtersInitialized = "true"
+
+    initFacetedChipFilter({
+      itemSelector: "[data-fun-card]",
+      groupSelector: "[data-fun-group]",
+      facets: [
+        {
+          key: "theme",
+          itemAttr: "funTheme",
+          filterButtonSelector: "[data-fun-theme-filter]",
+          filterButtonAttr: "funThemeFilter",
+        },
+        {
+          key: "kind",
+          itemAttr: "funKind",
+          filterButtonSelector: "[data-fun-kind-filter]",
+          filterButtonAttr: "funKindFilter",
+        },
+      ],
+      clearButtonSelector: "[data-fun-clear]",
+      activeIndicatorSelector: "[data-fun-active]",
+      statusSelector: "[data-fun-status]",
+      emptyStateSelector: "[data-fun-empty]",
+      resultNoun: "toy",
+    })
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initFunFilters, {
+      once: true,
+    })
+  } else {
+    initFunFilters()
+  }
+  document.addEventListener("astro:page-load", initFunFilters)
+  document.addEventListener("astro:after-swap", initFunFilters)
+</script>

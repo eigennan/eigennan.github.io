@@ -1,0 +1,78 @@
+---
+import "@/styles/fun.css"
+import { findFunApp } from "@/lib/fun/registry"
+
+interface Props {
+  slug: string
+  /** Canvas aspect ratio on wide screens. */
+  ratio?: string
+  /** Canvas aspect ratio below 48rem, where a wide box gets too short. */
+  narrowRatio?: string
+  /** What the canvas depicts, for screen readers. */
+  label: string
+  /** Render a second, WebGL viewport beside the 2D one. */
+  dual?: boolean
+  /** Put the flat panel on the left instead of the WebGL one. */
+  flatFirst?: boolean
+  /** Aspect ratio of each half when `dual` is set. */
+  splitRatio?: string
+  /** What the WebGL viewport depicts, for screen readers. */
+  label3d?: string
+}
+
+const {
+  slug,
+  ratio = "16 / 10",
+  narrowRatio = "1 / 1",
+  label,
+  dual = false,
+  flatFirst = false,
+  splitRatio,
+  label3d,
+} = Astro.props
+
+const app = findFunApp(slug)
+---
+
+<div
+  class="fun-stage"
+  data-fun-app={slug}
+  style={`--fun-ratio: ${ratio}; --fun-ratio-narrow: ${narrowRatio}${
+    splitRatio ? `; --fun-split-ratio: ${splitRatio}` : ""
+  }`}
+>
+  <div class="fun-body">
+    {dual ? (
+      <div class="fun-split" data-flat-first={flatFirst || undefined}>
+        <div class="fun-viewport fun-viewport-3d">
+          <canvas
+            class="fun-canvas"
+            data-fun-canvas-3d
+            role="img"
+            aria-label={label3d ?? label}></canvas>
+        </div>
+        <div class="fun-viewport fun-viewport-flat">
+          <canvas
+            class="fun-canvas"
+            data-fun-canvas
+            role="img"
+            aria-label={label}></canvas>
+        </div>
+      </div>
+    ) : (
+      <div class="fun-viewport">
+        <canvas class="fun-canvas" data-fun-canvas role="img" aria-label={label}
+        ></canvas>
+      </div>
+    )}
+    <div class="fun-controls">
+      <slot name="controls" />
+    </div>
+  </div>
+
+  <p class="fun-hint">{app.hint}</p>
+
+  <div class="fun-notes">
+    <slot name="notes" />
+  </div>
+</div>

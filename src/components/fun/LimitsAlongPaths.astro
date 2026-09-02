@@ -1,0 +1,389 @@
+---
+import FunReadout from "./FunReadout.astro"
+import FunSelect from "./FunSelect.astro"
+import FunSlider from "./FunSlider.astro"
+import FunStage from "./FunStage.astro"
+import FunToggle from "./FunToggle.astro"
+
+const functions = [
+  { value: "xy", label: "xy / (x² + y²)" },
+  { value: "quartic", label: "x²y / (x⁴ + y²)" },
+  { value: "diff", label: "(x² − y²) / (x² + y²)" },
+  { value: "safe", label: "x²y / (x² + y²)   — this one is fine" },
+  { value: "cubic", label: "x³ / (x² + y²)   — also fine" },
+]
+
+const paths = [
+  { value: "line", label: "Straight line, slope m" },
+  { value: "parabola", label: "Parabola  y = m x²" },
+  { value: "cubicPath", label: "Curve  y = m x³" },
+  { value: "spiral", label: "Spiral" },
+]
+---
+
+<FunStage
+  slug="limits-along-paths"
+  ratio="7 / 5"
+  narrowRatio="4 / 5"
+  label="A heat map of a function near the origin, with a chosen path approaching it and a graph of the function's value along that path."
+>
+  <Fragment slot="controls">
+    <FunSelect name="fn" label="Function" options={functions} />
+    <FunSelect name="path" label="Approach along" options={paths} />
+    <FunSlider
+      name="m"
+      label="m"
+      min={-300}
+      max={300}
+      step={1}
+      value={100}
+      display="1.00"
+    />
+    <div class="fun-toggles">
+      <FunToggle name="fan" label="Other paths" pressed />
+      <FunToggle name="shade" label="Shading" pressed />
+    </div>
+    <FunReadout
+      rows={[
+        { name: "along", label: "value along this path" },
+        { name: "axis", label: "along the x-axis" },
+        { name: "diag", label: "along y = x" },
+        { name: "verdict", label: "verdict" },
+      ]}
+    />
+    <p class="fun-note">
+      Try the fourth function. Every path gives zero, and this time that really
+      is the limit.
+    </p>
+  </Fragment>
+
+  <Fragment slot="notes">
+    <h2>What you're looking at</h2>
+    <p>
+      In one variable there are two ways to approach a point: from the left and
+      from the right. Check both, and if they agree you have a limit. In two
+      variables there are <strong>infinitely many</strong> ways in — every curve
+      that ends at the point is a legitimate approach — and the limit exists
+      only if <em>all</em> of them agree.
+    </p>
+    <p>
+      That makes disproving a limit easy and proving one hard. To show a limit
+      does not exist you need exactly two paths that disagree, and the fan of
+      straight lines usually finds them: watch the value along each line settle
+      to a different number depending on the slope.
+    </p>
+    <p>
+      The second function is the cautionary one. Every straight line through the
+      origin gives zero, so a quick check says "limit is 0" — and it's wrong.
+      Approach along the parabola instead and the value sits at ½. Straight
+      lines are not enough, and no finite collection of paths ever is.
+    </p>
+    <p>
+      Which is why proving existence needs a different tool entirely: bound the
+      whole function by something that goes to zero regardless of direction, and
+      let the squeeze do the work. The heat map is a good hint — the ones with a
+      genuine limit fade smoothly to a single colour at the origin, and the ones
+      without stay stubbornly striped no matter how far you zoom in.
+    </p>
+  </Fragment>
+</FunStage>
+
+<script>
+  import {
+    type FunAppHandle,
+    mountFunApp,
+    registerFunApp,
+  } from "@/lib/fun/canvas"
+  import {
+    bindSelect,
+    bindSlider,
+    bindToggle,
+    disposeAll,
+  } from "@/lib/fun/controls"
+  import { type Grid, gridToImage, sampleGrid } from "@/lib/fun/contour"
+  import { type Scalar2, clamp, fmt, lerp } from "@/lib/fun/numeric"
+  import { Plot2D } from "@/lib/fun/plot2d"
+  import { alpha, mix } from "@/lib/fun/theme"
+
+  const FUNCTIONS: Record<string, Scalar2> = {
+    xy: (x, y) => (x * y) / (x * x + y * y),
+    quartic: (x, y) => (x * x * y) / (x ** 4 + y * y),
+    diff: (x, y) => (x * x - y * y) / (x * x + y * y),
+    safe: (x, y) => (x * x * y) / (x * x + y * y),
+    cubic: (x, y) => x ** 3 / (x * x + y * y),
+  }
+
+  type PathMaker = (m: number) => (t: number) => [number, number]
+
+  /** Each path is parametrized so t → 0 walks into the origin. */
+  const PATHS: Record<string, PathMaker> = {
+    line: (m) => (t) => [t, m * t],
+    parabola: (m) => (t) => [t, m * t * t],
+    cubicPath: (m) => (t) => [t, m * t * t * t],
+    spiral: (m) => (t) => [
+      t * Math.cos((6 * m) / Math.max(Math.abs(t), 0.02)),
+      t * Math.sin((6 * m) / Math.max(Math.abs(t), 0.02)),
+    ],
+  }
+
+  const HALF = 1
+  const RESOLUTION = 200
+  const STRIP_HEIGHT = 106
+
+  function rgb(color: string): [number, number, number] {
+    const parts = color.match(/[\d.]+/g)
+    if (!parts) return [0, 0, 0]
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+  }
+
+  registerFunApp('[data-fun-app="limits-along-paths"]', (root) => {
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-fun-canvas]")
+    const maybeContext = canvas?.getContext("2d")
+    if (!canvas || !maybeContext) return () => {}
+
+    const plot = new Plot2D(maybeContext)
+    let app: FunAppHandle | null = null
+    const redraw = () => app?.redraw()
+
+    let grid: Grid | null = null
+    let shading: HTMLCanvasElement | null = null
+    let gridAspect = 0
+    let shadingKey = ""
+
+    const invalidate = () => {
+      grid = null
+      shading = null
+      gridAspect = 0
+    }
+
+    const fn = bindSelect(root, "fn", () => {
+      invalidate()
+      redraw()
+    })
+    const path = bindSelect(root, "path", redraw)
+    const m = bindSlider(root, "m", {
+      format: (v) => (v / 100).toFixed(2),
+      onInput: redraw,
+    })
+    const showFan = bindToggle(root, "fan", redraw)
+    const showShade = bindToggle(root, "shade", redraw)
+
+    const f = () => FUNCTIONS[fn.value] ?? FUNCTIONS.xy
+    const makePath = () => (PATHS[path.value] ?? PATHS.line)(m.value / 100)
+
+    function setReadout(name: string, value: string) {
+      const el = root.querySelector<HTMLElement>(`[data-fun-readout="${name}"]`)
+      if (el) el.textContent = value
+    }
+
+    /** Where the function tends as this path closes in on the origin. */
+    function limitAlong(curve: (t: number) => [number, number]): number {
+      const evaluate = f()
+      let last = Number.NaN
+      for (let k = 6; k <= 13; k++) {
+        const [x, y] = curve(10 ** -k)
+        const value = evaluate(x, y)
+        if (Number.isFinite(value)) last = value
+      }
+      return last
+    }
+
+    app = mountFunApp({
+      canvas,
+      draw({ ctx, width, height, palette }) {
+        const evaluate = f()
+        const mapHeight = height - STRIP_HEIGHT
+        const aspect = Math.round((width / mapHeight) * 50) / 50
+        const bounds = {
+          xMin: -HALF * aspect,
+          xMax: HALF * aspect,
+          yMin: -HALF,
+          yMax: HALF,
+        }
+        plot.fit(width, mapHeight, bounds)
+
+        if (!grid || gridAspect !== aspect) {
+          gridAspect = aspect
+          grid = sampleGrid(
+            evaluate,
+            bounds,
+            Math.min(360, Math.round(RESOLUTION * aspect)),
+            RESOLUTION,
+          )
+          shading = null
+        }
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, width, mapHeight)
+        ctx.clip()
+
+        if (showShade.on) {
+          const key = `${palette.background}|${palette.primary}`
+          if (!shading || shadingKey !== key) {
+            shadingKey = key
+            const low = rgb(mix(palette.background, palette.accent, 0.65))
+            const high = rgb(mix(palette.background, palette.primary, 0.9))
+            shading = gridToImage(grid, (t) => [
+              lerp(low[0], high[0], t),
+              lerp(low[1], high[1], t),
+              lerp(low[2], high[2], t),
+            ])
+          }
+          ctx.imageSmoothingEnabled = true
+          ctx.drawImage(
+            shading,
+            plot.sx(bounds.xMin),
+            plot.sy(bounds.yMax),
+            (bounds.xMax - bounds.xMin) * plot.scale,
+            (bounds.yMax - bounds.yMin) * plot.scale,
+          )
+        }
+
+        plot.axes(alpha(palette.foreground, 0.3))
+
+        const sample = (curve: (t: number) => [number, number]) => {
+          const points: number[] = []
+          for (let i = 260; i >= 1; i--) {
+            const [x, y] = curve(-(i / 260) * HALF * aspect)
+            points.push(x, y)
+          }
+          for (let i = 1; i <= 260; i++) {
+            const [x, y] = curve((i / 260) * HALF * aspect)
+            points.push(x, y)
+          }
+          return points
+        }
+
+        if (showFan.on) {
+          const maker = PATHS[path.value] ?? PATHS.line
+          for (let k = -3; k <= 3; k++) {
+            const other = k * 1.1
+            if (Math.abs(other - m.value / 100) < 0.2) continue
+            plot.polyline(sample(maker(other)), {
+              color: alpha(palette["muted-foreground"], 0.45),
+              width: 1,
+            })
+          }
+        }
+
+        const curve = makePath()
+        plot.polyline(sample(curve), { color: palette.destructive, width: 3 })
+        plot.disc(0, 0, 6, {
+          fill: palette.background,
+          stroke: palette.foreground,
+          width: 2.5,
+        })
+
+        ctx.restore()
+
+        const alongValue = limitAlong(curve)
+        const axisValue = limitAlong((t) => [t, 0])
+        const diagValue = limitAlong((t) => [t, t])
+        setReadout("along", fmt(alongValue, 4))
+        setReadout("axis", fmt(axisValue, 4))
+        setReadout("diag", fmt(diagValue, 4))
+
+        // Sweep a fan of directions and curves: if any two disagree there is
+        // no limit, and saying so is more useful than three sample rows.
+        let low = Number.POSITIVE_INFINITY
+        let high = Number.NEGATIVE_INFINITY
+        for (let k = 0; k < 24; k++) {
+          const slope = Math.tan((k / 24) * Math.PI - Math.PI / 2 + 1e-3)
+          for (const maker of [PATHS.line, PATHS.parabola, PATHS.cubicPath]) {
+            const value = limitAlong(maker(slope))
+            if (!Number.isFinite(value)) continue
+            low = Math.min(low, value)
+            high = Math.max(high, value)
+          }
+        }
+        const agrees = Number.isFinite(low) && high - low < 1e-6
+        setReadout(
+          "verdict",
+          agrees
+            ? `every path gives ${fmt(low, 3)} — the limit exists`
+            : `paths give ${fmt(low, 3)} up to ${fmt(high, 3)} — no limit`,
+        )
+
+        drawStrip(ctx, palette, width, mapHeight, curve, evaluate)
+      },
+    })
+
+    /** The function's value along the path, plotted against distance in. */
+    function drawStrip(
+      ctx: CanvasRenderingContext2D,
+      palette: Record<string, string>,
+      width: number,
+      top: number,
+      curve: (t: number) => [number, number],
+      evaluate: Scalar2,
+    ) {
+      const padX = 18
+      const innerWidth = width - padX * 2
+      const innerTop = top + 24
+      const innerHeight = STRIP_HEIGHT - 40
+
+      ctx.beginPath()
+      ctx.moveTo(0, top)
+      ctx.lineTo(width, top)
+      ctx.strokeStyle = alpha(palette.border, 1)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      const values: number[] = []
+      const samples = 240
+      for (let i = 0; i <= samples; i++) {
+        // Log spacing, so the interesting last decade is not one pixel wide.
+        const t = 10 ** lerp(-6, 0, i / samples)
+        const [x, y] = curve(t)
+        const value = evaluate(x, y)
+        values.push(Number.isFinite(value) ? value : 0)
+      }
+      const low = Math.min(...values)
+      const high = Math.max(...values)
+      const span = Math.max(high - low, 0.3)
+      const mid = (high + low) / 2
+
+      const px = (i: number) => padX + (i / samples) * innerWidth
+      const py = (value: number) =>
+        innerTop +
+        innerHeight / 2 -
+        clamp((value - mid) / span, -0.5, 0.5) * innerHeight * 0.9
+
+      ctx.beginPath()
+      values.forEach((value, i) => {
+        if (i === 0) ctx.moveTo(px(i), py(value))
+        else ctx.lineTo(px(i), py(value))
+      })
+      ctx.strokeStyle = palette.destructive
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      plot.screenText("value along the path", padX, top + 6, {
+        color: palette["muted-foreground"],
+        size: 11,
+        align: "left",
+        baseline: "top",
+      })
+      plot.screenText("at the origin", padX, top + STRIP_HEIGHT - 4, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "left",
+        baseline: "bottom",
+      })
+      plot.screenText("far out", width - padX, top + STRIP_HEIGHT - 4, {
+        color: palette["muted-foreground"],
+        size: 10.5,
+        align: "right",
+        baseline: "bottom",
+      })
+    }
+
+    const disposeControls = disposeAll([fn, path, m, showFan, showShade])
+
+    return () => {
+      disposeControls()
+      app?.dispose()
+    }
+  })
+</script>
