@@ -22,6 +22,16 @@ void test("sidenote state resets between documents", async () => {
 
   assert.match(first.html, /id="sn-1"/)
   assert.match(second.html, /id="sn-1"/)
+
+  // The toggle is pure CSS, so a label whose `for` drifts from the checkbox
+  // `id` breaks sidenotes silently -- no build error, no visual difference
+  // until a reader clicks.
+  const labelFor = first.html.match(/<label[^>]*\sfor="([^"]+)"/)?.[1]
+  const checkboxId = first.html.match(
+    /<input[^>]*\sid="([^"]+)"[^>]*class="sidenote-toggle-checkbox"/,
+  )?.[1]
+  assert.equal(labelFor, "sn-1")
+  assert.equal(checkboxId, labelFor)
   assert.doesNotMatch(second.html, /id="sn-2"/)
   assert.match(second.html, /Second note/)
   assert.doesNotMatch(second.html, /First note/)

@@ -77,8 +77,28 @@ function footnoteKey(value: string): string {
   return value.replace(/^#/, "").replace(/^(?:user-content-)?fn-/, "")
 }
 
+/* Satteri hands visitors class instances (WalkElement and friends) whose lazy
+   internals include a WeakMap, and structuredClone refuses to clone one. A
+   detached footnote copy only ever needs the plain hast fields, so rebuild
+   those explicitly rather than cloning satteri's node wrapper. */
 function cloneNode<T extends RootContent>(node: T): T {
-  return structuredClone(node)
+  const clone: Record<string, unknown> = { type: node.type }
+
+  if ("tagName" in node) clone.tagName = node.tagName
+  if ("value" in node) clone.value = node.value
+  if ("properties" in node && node.properties) {
+    clone.properties = Object.fromEntries(
+      Object.entries(node.properties).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? [...value] : value,
+      ]),
+    )
+  }
+  if ("children" in node && node.children) {
+    clone.children = node.children.map((child) => cloneNode(child))
+  }
+
+  return clone as T
 }
 
 function isGeneratedBackref(node: Element): boolean {
@@ -351,7 +371,7 @@ export function satteriSidenotes(
                   type: "element",
                   tagName: "label",
                   properties: {
-                    htmlFor: snId,
+                    htmlFor: [snId],
                     id: refId,
                     className: ["sidenote-toggle", "sidenote-number"],
                   },
