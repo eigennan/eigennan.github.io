@@ -41,8 +41,9 @@ the loader to collect it.
 
 Static files live in `public/` and are served from the site root.
 
-- Favicons and app icons: `public/favicon.ico`, `public/favicon.svg`,
-  `public/apple-touch-icon.png`, `public/web-app-manifest-*.png`.
+- Favicons and app icons: `public/favicon.ico`,
+  `public/favicon-96x96.png`, `public/apple-touch-icon.png`,
+  `public/web-app-manifest-*.png`.
 - Web manifest: `public/site.webmanifest`.
 - Social fallback image: `public/img/social-preview.png`.
 - Documents: `public/doc/`.
