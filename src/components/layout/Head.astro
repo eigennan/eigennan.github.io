@@ -3,6 +3,7 @@ import { ClientRouter } from "astro:transitions"
 
 import { PROFILE, SITE } from "@site-config"
 import type { BreadcrumbItem } from "@/components/layout/Breadcrumbs.astro"
+import GoogleAnalytics from "@/components/layout/GoogleAnalytics.astro"
 
 interface Props {
   title?: string
@@ -287,19 +288,7 @@ const structuredData = {
     href={new URL("rss.xml", SITE.href).href}
   >
 
-  {googleAnalyticsId && (
-    <>
-      <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}></script>
-      <script is:inline define:vars={{ googleAnalyticsId }}>
-        window.dataLayer = window.dataLayer || []
-        function gtag() {
-          dataLayer.push(arguments)
-        }
-        gtag("js", new Date())
-        gtag("config", googleAnalyticsId)
-      </script>
-    </>
-  )}
+  {googleAnalyticsId && <GoogleAnalytics measurementId={googleAnalyticsId} />}
 
   <ClientRouter />
   <script is:inline define:vars={{ siteLocale: SITE.locale.lang }}>

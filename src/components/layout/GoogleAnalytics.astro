@@ -1,0 +1,34 @@
+---
+interface Props {
+  measurementId: string
+}
+
+const { measurementId } = Astro.props
+---
+
+<script
+  is:inline
+  async
+  src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+></script>
+<script is:inline define:vars={{ measurementId }}>
+  window.dataLayer = window.dataLayer || []
+  function gtag() {
+    dataLayer.push(arguments)
+  }
+  gtag("js", new Date())
+
+  /* ClientRouter navigations are pushState, not page loads, and this head
+     script is left in place across a swap, so the automatic page_view would
+     only ever count a visit's first page. Send each view by hand instead:
+     astro:page-load fires on the initial load as well as after every swap,
+     once the new title is already in place. */
+  gtag("config", measurementId, { send_page_view: false })
+
+  document.addEventListener("astro:page-load", () => {
+    gtag("event", "page_view", {
+      page_title: document.title,
+      page_location: location.href,
+    })
+  })
+</script>
